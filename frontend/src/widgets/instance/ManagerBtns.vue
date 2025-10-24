@@ -304,8 +304,8 @@ watch(instanceInfo, (cfg, oldCfg) => {
   overflow-x: hidden;
 }
 
-/* 移动设备窄屏幕下的自适应高度 */
-@media (max-width: 600px) {
+/* 当组件垂直排列时的自适应高度 */
+@media (max-width: 1000px) {
   .function-btns-container {
     position: relative;
     height: auto;
