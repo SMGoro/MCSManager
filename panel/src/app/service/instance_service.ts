@@ -1,9 +1,13 @@
-import userSystem from "../service/user_service";
-import RemoteServiceSubsystem from "../service/remote_service";
-import RemoteRequest from "../service/remote_command";
+import axios from "axios";
+import fs from "fs-extra";
 import { t } from "i18next";
-import { systemConfig } from "../setting";
 import { toText } from "mcsmanager-common";
+import path from "path";
+import { MARKET_CACHE_FILE_PATH, SAVE_DIR_PATH } from "../const";
+import RemoteRequest from "../service/remote_command";
+import RemoteServiceSubsystem from "../service/remote_service";
+import userSystem from "../service/user_service";
+import { systemConfig } from "../setting";
 
 export enum INSTANCE_STATUS {
   BUSY = -1,
@@ -77,7 +81,7 @@ export async function getInstancesByUuid(
     for (const iterator of instances) {
       if (targetDaemonId && targetDaemonId !== iterator.daemonId) continue;
       const remoteService = RemoteServiceSubsystem.getInstance(iterator.daemonId);
-      if (!remoteService) {
+      if (!remoteService || !remoteService.available) {
         // If the remote service doesn't exist at all, load a deleted prompt
         resInstances.push({
           hostIp: "-- Unknown --",
@@ -98,27 +102,32 @@ export async function getInstancesByUuid(
         continue;
       }
       // Note: UUID can be integrated here to save the returned traffic, and this optimization will not be done for the time being
-      let instancesInfo = await new RemoteRequest(remoteService).request("instance/section", {
-        instanceUuids: [iterator.instanceUuid]
-      });
-      if (!instancesInfo || instancesInfo.length === 0) continue;
-      instancesInfo = instancesInfo[0];
-      resInstances.push({
-        hostIp: `${remoteService.config.ip}:${remoteService.config.port}`,
-        remarks: remoteService.config.remarks,
-        instanceUuid: instancesInfo.instanceUuid,
-        daemonId: remoteService.uuid,
-        status: instancesInfo.status,
-        nickname: instancesInfo.config.nickname,
-        ie: instancesInfo.config.ie,
-        oe: instancesInfo.config.oe,
-        endTime: instancesInfo.config.endTime,
-        lastDatetime: instancesInfo.config.lastDatetime,
-        stopCommand: instancesInfo.config.stopCommand,
-        processType: instancesInfo.config.processType,
-        docker: instancesInfo.config.docker || {},
-        info: instancesInfo.info || {}
-      });
+      try {
+        let instancesInfo = await new RemoteRequest(remoteService).request("instance/section", {
+          instanceUuids: [iterator.instanceUuid]
+        });
+        if (!instancesInfo || instancesInfo.length === 0) continue;
+        instancesInfo = instancesInfo[0];
+        resInstances.push({
+          hostIp: `${remoteService.config.ip}:${remoteService.config.port}`,
+          remarks: remoteService.config.remarks,
+          instanceUuid: instancesInfo.instanceUuid,
+          daemonId: remoteService.uuid,
+          status: instancesInfo.status,
+          nickname: instancesInfo.config.nickname,
+          ie: instancesInfo.config.ie,
+          oe: instancesInfo.config.oe,
+          endTime: instancesInfo.config.endTime,
+          lastDatetime: instancesInfo.config.lastDatetime,
+          stopCommand: instancesInfo.config.stopCommand,
+          processType: instancesInfo.config.processType,
+          docker: instancesInfo.config.docker || {},
+          info: instancesInfo.info || {}
+        });
+      } catch (error) {
+        // ignore error
+        continue;
+      }
     }
   } else {
     resInstances = user.instances;
@@ -160,4 +169,47 @@ export function checkInstanceAdvancedParams(
       env: dockerEnv
     }
   };
+}
+
+/**
+ * Get the app market list
+ * @returns IQuickStartTemplate
+ */
+export async function getAppMarketList() {
+  const presetUrl = systemConfig?.presetPackAddr;
+  if (!presetUrl) throw new Error("Preset Addr is empty!");
+
+  if (presetUrl?.startsWith(SAVE_DIR_PATH)) {
+    // Custom App Market List from local file
+    const filesDir = path.join(process.cwd(), SAVE_DIR_PATH);
+    const fileName = presetUrl?.split(SAVE_DIR_PATH)[1];
+    const filePath = path.join(filesDir, fileName ?? "");
+    if (fs.existsSync(filePath)) {
+      return JSON.parse(await fs.readFile(filePath, "utf-8")) as IQuickStartTemplate;
+    } else {
+      throw new Error(`Request failed, status: 404`);
+    }
+  } else {
+    // App Market List from remote server
+    const CACHE_DURATION = 6 * 60 * 60 * 1000; // 6 hours
+    try {
+      const stats = await fs.stat(MARKET_CACHE_FILE_PATH);
+      const now = Date.now();
+      const fileAge = now - stats.mtime.getTime();
+
+      // Use cache
+      if (fileAge < CACHE_DURATION) {
+        const cachedData = await fs.readFile(MARKET_CACHE_FILE_PATH, "utf-8");
+        return JSON.parse(cachedData) as IQuickStartTemplate;
+      }
+    } catch (error) {
+      // Cache file doesn't exist, continue to fetch new data
+    }
+    // Fetch new data from remote server
+    const { data: presetConfig } = await axios<IQuickStartTemplate>({
+      url: presetUrl,
+      method: "GET"
+    });
+    return presetConfig;
+  }
 }

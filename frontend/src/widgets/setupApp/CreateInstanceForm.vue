@@ -1,20 +1,13 @@
 <script setup lang="ts">
 import { getFileConfigAddr } from "@/hooks/useFileManager";
-import {
-  INSTANCE_TYPE_TRANSLATION,
-  TYPE_MINECRAFT_BEDROCK,
-  TYPE_MINECRAFT_JAVA,
-  TYPE_STEAM_SERVER_UNIVERSAL,
-  TYPE_TERRARIA,
-  TYPE_UNIVERSAL
-} from "@/hooks/useInstance";
+import { INSTANCE_TYPE_TRANSLATION, TYPE_MINECRAFT_BUNGEECORD } from "@/hooks/useInstance";
 import { QUICKSTART_ACTION_TYPE, QUICKSTART_METHOD } from "@/hooks/widgets/quickStartFlow";
 import { t } from "@/lang/i18n";
 import { createInstance as createInstanceApi, uploadAddress } from "@/services/apis/instance";
 import uploadService, { UploadFiles } from "@/services/uploadService";
 import { parseForwardAddress } from "@/tools/protocol";
 import { reportErrorMsg } from "@/tools/validator";
-import type { NewInstanceForm } from "@/types";
+import { defaultInstanceInfo } from "@/types/const";
 import {
   CheckOutlined,
   CloseOutlined,
@@ -31,75 +24,46 @@ const selectUnzipCodeDialog = ref<InstanceType<typeof SelectUnzipCode>>();
 const emit = defineEmits(["nextStep"]);
 
 const props = defineProps<{
-  appType: QUICKSTART_ACTION_TYPE;
   createMethod: QUICKSTART_METHOD;
   daemonId: string;
 }>();
 
 const zipCode = ref("utf-8");
 const formRef = ref<FormInstance>();
-const formData = reactive<NewInstanceForm>({
-  nickname: "",
-  startCommand: "",
-  stopCommand: "^c",
-  cwd: "",
-  ie: "utf-8",
-  oe: "utf-8",
-  processType: "general",
-  createDatetime: new Date().toDateString(),
-  lastDatetime: "",
-  type: TYPE_UNIVERSAL,
-  tag: [],
-  maxSpace: null,
-  endTime: "",
-  docker: {
-    containerName: "",
-    image: "",
-    ports: [],
-    extraVolumes: [],
-    networkMode: "bridge",
-    networkAliases: [],
-    cpusetCpus: "",
-    workingDir: "/data",
-    changeWorkdir: true,
-    memory: undefined,
-    cpuUsage: undefined,
-    maxSpace: undefined,
-    io: undefined,
-    network: undefined,
-    env: []
-  }
-});
+const formData = reactive<IGlobalInstanceConfig>(defaultInstanceInfo);
 
 const isImportMode = props.createMethod === QUICKSTART_METHOD.IMPORT;
 const isFileMode = props.createMethod === QUICKSTART_METHOD.FILE;
 const needUpload = isImportMode || isFileMode;
 
-if (props.appType === QUICKSTART_ACTION_TYPE.Minecraft) {
-  formData.startCommand = isFileMode ? "java -jar ${ProgramName}" : "";
-  formData.stopCommand = "stop";
-  formData.type = TYPE_MINECRAFT_JAVA;
-}
+function changeInstanceType(appType: string) {
+  if (appType.includes(QUICKSTART_ACTION_TYPE.Minecraft)) {
+    if (appType === TYPE_MINECRAFT_BUNGEECORD) {
+      formData.stopCommand = "end";
+    } else {
+      formData.stopCommand = "stop";
+    }
+  }
 
-if (props.appType === QUICKSTART_ACTION_TYPE.Bedrock) {
-  formData.startCommand = isFileMode ? "${ProgramName}" : "";
-  formData.stopCommand = "stop";
-  formData.type = TYPE_MINECRAFT_BEDROCK;
-}
+  if (appType.includes(QUICKSTART_ACTION_TYPE.Bedrock)) {
+    formData.stopCommand = "stop";
+  }
 
-if (props.appType === QUICKSTART_ACTION_TYPE.Terraria) {
-  formData.startCommand = isFileMode ? "${ProgramName}" : "";
-  formData.stopCommand = "stop";
-  formData.type = TYPE_TERRARIA;
-}
+  if (appType.includes(QUICKSTART_ACTION_TYPE.Terraria)) {
+    formData.stopCommand = "stop";
+  }
 
-if (props.appType === QUICKSTART_ACTION_TYPE.SteamGameServer) {
-  formData.startCommand = isFileMode ? "${ProgramName}" : "";
-  formData.type = TYPE_STEAM_SERVER_UNIVERSAL;
+  if (
+    appType.includes(QUICKSTART_ACTION_TYPE.SteamGameServer) ||
+    appType.includes(QUICKSTART_ACTION_TYPE.AnyApp)
+  ) {
+    formData.stopCommand = "^c";
+  }
 }
 
 const rules: Record<string, Rule[]> = {
-  nickname: [{ required: true, message: t("TXT_CODE_68a504b3") }]
+  nickname: [{ required: true, message: t("TXT_CODE_68a504b3") }],
+  stopCommand: [{ required: true, message: t("TXT_CODE_83053cd5") }]
 };
 
 const uFile = ref<File>();
@@ -124,6 +88,11 @@ const setUnzipCode = async (code: string) => {
 };
 
 const finalConfirm = async () => {
+  try {
+    await formRef.value?.validate();
+  } catch (err: any) {
+    return reportErrorMsg(t("TXT_CODE_47e21c80"));
+  }
   const thisModal = Modal.confirm({
     title: t("TXT_CODE_2a3b0c17"),
     icon: createVNode(InfoCircleOutlined),
@@ -132,10 +101,9 @@ const finalConfirm = async () => {
     async onOk() {
       thisModal.destroy();
       try {
-        await formRef.value?.validateFields();
         needUpload ? await selectedFile() : await createInstance();
-      } catch {
-        return reportErrorMsg(t("TXT_CODE_47e21c80"));
+      } catch (err: any) {
+        return reportErrorMsg(err);
       }
     },
     onCancel() {}
@@ -160,6 +128,7 @@ const percentComplete = computed(() => {
   if (!uploadData.current) return 0;
   return (uploadData.current[0] / uploadData.current[1]) * 100;
 });
+
 const percentText = () => {
   if (!uploadFileInstance.value) {
     return t("TXT_CODE_c17f6488");
@@ -173,6 +142,7 @@ const percentText = () => {
     });
   }
 };
+
 const selectedFile = async () => {
   try {
     if (!formData.cwd) formData.cwd = ".";
@@ -269,7 +239,11 @@ const createInstance = async () => {
             {{ t("TXT_CODE_be608c82") }}
           </a-typography-text>
         </a-typography-paragraph>
-        <a-select v-model:value="formData.type" :placeholder="t('TXT_CODE_3bb646e4')">
+        <a-select
+          v-model:value="formData.type"
+          :placeholder="t('TXT_CODE_3bb646e4')"
+          @change="(value) => changeInstanceType(value?.toString() ?? '')"
+        >
           <a-select-option v-for="(item, key) in INSTANCE_TYPE_TRANSLATION" :key="key" :value="key">
             {{ item }}
           </a-select-option>
@@ -352,6 +326,18 @@ const createInstance = async () => {
             style="min-height: 40px"
           />
         </a-input-group>
+      </a-form-item>
+
+      <a-form-item name="stopCommand">
+        <a-typography-title :level="5" class="require-field">
+          {{ t("TXT_CODE_11cfe3a1") }}
+        </a-typography-title>
+        <a-typography-paragraph>
+          <a-typography-text type="secondary">
+            {{ t("TXT_CODE_7ec7ccb8") }}
+          </a-typography-text>
+        </a-typography-paragraph>
+        <a-input v-model:value="formData.stopCommand" :placeholder="t('TXT_CODE_83053cd5')" />
       </a-form-item>
 
       <a-form-item name="cwd">

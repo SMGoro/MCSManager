@@ -13,7 +13,7 @@ declare global {
     tag: string[];
     endTime: number;
     fileCode: string;
-    processType: string;
+    processType: ProcessType;
     updateCommand: string;
     runAs: string;
     actionCommandList: any[];
@@ -39,6 +39,7 @@ declare global {
     eventTask: {
       autoStart: boolean;
       autoRestart: boolean;
+      autoRestartMaxTimes: number;
       ignore: boolean;
     };
     docker: IGlobalInstanceDockerConfig;
@@ -57,6 +58,8 @@ declare global {
       enableDownload?: boolean;
     };
   }
+
+  type ProcessType = "general" | "docker";
 
   interface IGlobalInstanceDockerConfig {
     containerName?: string;
@@ -138,6 +141,7 @@ declare global {
       language: string;
       uploadSpeedRate: number;
       downloadSpeedRate: number;
+      maxDownloadFromUrlFileCount: number;
       portRangeStart: number;
       portRangeEnd: number;
       portAssignInterval: number;
@@ -197,6 +201,7 @@ declare global {
     page: string;
     items: ILayoutCard[];
     theme?: {
+      logoImage: string;
       backgroundImage: string;
     };
   }
@@ -235,7 +240,7 @@ declare global {
     remark: string;
     targetLink?: string;
     author: string;
-    setupInfo?: IJsonData;
+    setupInfo: IGlobalInstanceConfig;
     gameType: string;
     image: string;
     platform: string;

@@ -1,9 +1,31 @@
-import { $t } from "../i18n";
 import schedule from "node-schedule";
-import InstanceSubsystem from "./system_instance";
 import StorageSubsystem from "../common/system_storage";
+import Instance from "../entity/instance/instance";
+import { $t } from "../i18n";
+import { sleep } from "../utils/sleep";
 import logger from "./log";
 import FileManager from "./system_file";
+import InstanceSubsystem from "./system_instance";
+
+export enum ScheduleActionTypeEnum {
+  Delay = "delay",
+  Command = "command",
+  Stop = "stop",
+  Start = "start",
+  Restart = "restart",
+  Kill = "kill"
+}
+
+export const ScheduleTypeEnum = {
+  Interval: 1,
+  Cycle: 2,
+  Specify: 3
+};
+
+interface IScheduleAction {
+  type: string;
+  payload: string;
+}
 
 // Scheduled task configuration item interface
 interface IScheduleTask {
@@ -11,8 +33,9 @@ interface IScheduleTask {
   name: string;
   count: number;
   time: string;
-  action: string;
-  payload: string;
+  action: string | undefined;
+  payload: string | undefined;
+  actions: IScheduleAction[];
   type: number;
 }
 
@@ -25,12 +48,13 @@ interface IScheduleJob {
 // Schedule task configuration data entity class
 class TaskConfig implements IScheduleTask {
   instanceUuid = "";
-  name: string = "";
-  count: number = 1;
-  time: string = "";
-  action: string = "";
-  payload: string = "";
-  type: number = 1;
+  name = "";
+  count = 1;
+  time = "";
+  action: string | undefined = undefined;
+  payload: string | undefined = undefined;
+  actions: IScheduleAction[] = [];
+  type = 1;
 }
 
 class IntervalJob implements IScheduleJob {
@@ -59,6 +83,16 @@ class InstanceControlSubsystem {
     StorageSubsystem.list("TaskConfig").forEach((uuid) => {
       const config = StorageSubsystem.load("TaskConfig", TaskConfig, uuid) as TaskConfig;
       try {
+        // load old task config
+        if (config.action && config.payload) {
+          config.actions[config.actions.length] = {
+            type: config.action,
+            payload: config.payload
+          };
+          config.action = undefined;
+          config.payload = undefined;
+          StorageSubsystem.store("TaskConfig", uuid, config);
+        }
         this.registerScheduleJob(config, false);
       } catch (error: any) {
         // Some scheduled tasks may be left, but the upper limit will not change
@@ -79,6 +113,7 @@ class InstanceControlSubsystem {
       throw new Error($t("TXT_CODE_system_instance_control.existRepeatTask"));
     if (!FileManager.checkFileName(task.name))
       throw new Error($t("TXT_CODE_system_instance_control.illegalName"));
+    if (task.actions?.length > 10) throw new Error($t("TXT_CODE_3e107108"));
     if (needStore)
       logger.info(
         $t("TXT_CODE_system_instance_control.crateTask", {
@@ -90,9 +125,12 @@ class InstanceControlSubsystem {
     let job: IScheduleJob;
 
     // min interval check
-    if (task.type === 1) {
-      let internalTime = Number(task.time);
-      if (isNaN(internalTime) || internalTime < 1) internalTime = 1;
+    if (task.type === ScheduleTypeEnum.Interval) {
+      // Unit: seconds
+      const internalTime = Number(task.time);
+      if (isNaN(internalTime) || internalTime < 3) {
+        throw new Error($t("TXT_CODE_ec96e2bf"));
+      }
 
       // task.type=1: Time interval scheduled task, implemented with built-in timer
       job = new IntervalJob(() => {
@@ -109,6 +147,10 @@ class InstanceControlSubsystem {
     } else {
       // Expression validity check: 8 19 14 * * 1,2,3,4
       const timeArray = task.time.split(" ");
+      if (timeArray[0] === "*") {
+        throw new Error($t("TXT_CODE_6b77cd52"));
+      }
+
       const checkIndex = [0, 1, 2];
       checkIndex.forEach((item) => {
         if (isNaN(Number(timeArray[item])) && Number(timeArray[item]) >= 0) {
@@ -120,10 +162,11 @@ class InstanceControlSubsystem {
           );
         }
       });
+
       // task.type=2: Specify time-based scheduled tasks, implemented by node-schedule library
       job = schedule.scheduleJob(task.time, () => {
         this.action(task);
-        if (task.count === -1) return;
+        if (task.count === -1 || String(task.count) === "") return;
         if (task.count === 1) {
           job.cancel();
           this.deleteTask(key, task.name);
@@ -154,46 +197,61 @@ class InstanceControlSubsystem {
 
   public async action(task: IScheduleTask) {
     try {
-      const payload = task.payload;
+      const actions = task.actions;
       const instanceUuid = task.instanceUuid;
       const instance = InstanceSubsystem.getInstance(instanceUuid);
+
       // If the instance has been deleted, it needs to be automatically destroyed
-      if (!instance) {
+      if (!instance || !instance?.config) {
         return this.deleteScheduleTask(task.instanceUuid, task.name);
       }
-      const instanceStatus = instance.status();
-      // logger.info(`Execute scheduled task: ${task.name} ${task.action} ${task.time} ${task.count} `);
-      if (task.action === "start") {
-        if (instanceStatus === 0) {
-          return await instance.execPreset("start");
+
+      for (const action of actions) {
+        const actionType = action.type;
+        const payload = action.payload;
+        const instanceStatus = instance.status();
+        if (actionType === ScheduleActionTypeEnum.Delay) {
+          const delayTime = parseInt(payload);
+          await sleep(isNaN(delayTime) ? 0 : delayTime);
+          continue;
         }
-      }
-      if (task.action === "stop") {
-        if (instanceStatus === 3) {
-          return await instance.execPreset("stop");
+        if (actionType === ScheduleActionTypeEnum.Start) {
+          if (instanceStatus === Instance.STATUS_STOP) {
+            await instance.execPreset("start");
+          }
+          continue;
         }
-      }
-      if (task.action === "restart") {
-        if (instanceStatus === 3) {
-          return await instance.execPreset("restart");
+        if (actionType === ScheduleActionTypeEnum.Stop) {
+          if (instanceStatus === Instance.STATUS_RUNNING) {
+            await instance.execPreset("stop");
+          }
+          continue;
         }
-      }
-      if (task.action === "command") {
-        if (instanceStatus === 3) {
-          return await instance.execPreset("command", payload);
+        if (actionType === ScheduleActionTypeEnum.Restart) {
+          if (
+            instanceStatus === Instance.STATUS_RUNNING ||
+            instanceStatus === Instance.STATUS_STOP
+          ) {
+            await instance.execPreset("restart");
+          }
+          continue;
         }
-      }
-      if (task.action === "kill") {
-        return await instance.execPreset("kill");
+        if (actionType === ScheduleActionTypeEnum.Command) {
+          if (instanceStatus === Instance.STATUS_RUNNING) {
+            await instance.execPreset("command", payload);
+          }
+          continue;
+        }
+        if (actionType === ScheduleActionTypeEnum.Kill) {
+          await instance.execPreset("kill");
+          continue;
+        }
+
+        // Limit execution frequency to prevent user scheduled tasks from causing performance issues
+        await sleep(100);
       }
     } catch (error: any) {
-      logger.error(
-        $t("TXT_CODE_system_instance_control.execCmdErr", {
-          uuid: task.instanceUuid,
-          name: task.name,
-          error: error
-        })
-      );
+      // ignore error
     }
   }
 

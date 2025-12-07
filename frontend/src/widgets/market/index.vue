@@ -3,7 +3,7 @@ import CardPanel from "@/components/CardPanel.vue";
 import { openNodeSelectDialog } from "@/components/fc/index";
 import { router } from "@/config/router";
 import { useLayoutCardTools } from "@/hooks/useCardTools";
-import { QUICKSTART_ACTION_TYPE, QUICKSTART_METHOD } from "@/hooks/widgets/quickStartFlow";
+import { QUICKSTART_METHOD } from "@/hooks/widgets/quickStartFlow";
 import { t } from "@/lang/i18n";
 import { useAppStateStore } from "@/stores/useAppStateStore";
 import type { LayoutCard } from "@/types";
@@ -28,7 +28,6 @@ const daemonId = getMetaOrRouteValue("daemonId", false) ?? "";
 
 // 表单数据状态
 const formData = ref({
-  appType: QUICKSTART_ACTION_TYPE.AnyApp,
   createMethod: QUICKSTART_METHOD.DOCKER,
   daemonId: daemonId || ""
 });
@@ -48,12 +47,9 @@ const handleNext = (instanceUuid: string) => {
   });
 };
 
-const handleInstallAction = async (
-  createMethod: QUICKSTART_METHOD,
-  appType: QUICKSTART_ACTION_TYPE
-) => {
+const handleInstallAction = async (createMethod: QUICKSTART_METHOD) => {
   formData.value.createMethod = createMethod;
-  formData.value.appType = appType;
+
   try {
     const selectedNode = await openNodeSelectDialog();
     if (!selectedNode) return;
@@ -69,21 +65,28 @@ const manualInstallOptions = [
     label: t("TXT_CODE_a3efb1cc"),
     icon: FileZipOutlined,
     description: t("TXT_CODE_f09da050"),
-    action: () =>
-      handleInstallAction(QUICKSTART_METHOD.IMPORT, QUICKSTART_ACTION_TYPE.SteamGameServer)
+    action: (e: Event) => {
+      handleInstallAction(QUICKSTART_METHOD.IMPORT);
+      e.preventDefault();
+    }
   },
   {
     label: t("TXT_CODE_bae487e4"),
     icon: BlockOutlined,
     description: t("TXT_CODE_256e5825"),
-    action: () =>
-      handleInstallAction(QUICKSTART_METHOD.DOCKER, QUICKSTART_ACTION_TYPE.SteamGameServer)
+    action: (e: Event) => {
+      handleInstallAction(QUICKSTART_METHOD.DOCKER);
+      e.preventDefault();
+    }
   },
   {
     label: t("TXT_CODE_e0fca76"),
     icon: FolderOpenOutlined,
     description: t("TXT_CODE_b3844cf8"),
-    action: () => handleInstallAction(QUICKSTART_METHOD.EXIST, QUICKSTART_ACTION_TYPE.AnyApp)
+    action: (e: Event) => {
+      handleInstallAction(QUICKSTART_METHOD.EXIST);
+      e.preventDefault();
+    }
   }
 ];
 </script>
@@ -109,7 +112,7 @@ const manualInstallOptions = [
             :md="12"
             :lg="8"
           >
-            <CardPanel class="install-option-card" :style="{}" @click="option.action">
+            <CardPanel class="install-option-card">
               <template #title>
                 <div class="card-header">
                   <div class="card-title">{{ option.label }}</div>
@@ -147,7 +150,6 @@ const manualInstallOptions = [
       :destroy-on-close="true"
     >
       <CreateInstanceForm
-        :app-type="formData.appType"
         :create-method="formData.createMethod"
         :daemon-id="formData.daemonId"
         @next-step="handleNext"

@@ -6,8 +6,6 @@ interface IActionCommand {
   command: string;
 }
 
-type ProcessType = "general" | "docker";
-
 // @Entity
 export default class InstanceConfig implements IGlobalInstanceConfig {
   public nickname = "Undefined";
@@ -52,6 +50,7 @@ export default class InstanceConfig implements IGlobalInstanceConfig {
   public eventTask = {
     autoStart: false,
     autoRestart: false,
+    autoRestartMaxTimes: -1,
     ignore: false
   };
 

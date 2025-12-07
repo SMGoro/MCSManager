@@ -35,6 +35,8 @@ interface IInstanceInfo {
   writeBytes?: number;
   memoryUsage?: number;
   memoryLimit?: number;
+  storageUsage?: number;
+  storageLimit?: number;
   allocatedPorts?: { host: number; container: number; protocol: string }[];
 }
 
@@ -74,6 +76,7 @@ export default class Instance extends EventEmitter {
   public instanceUuid: string = "";
   public lock: boolean = false;
   public startCount: number = 0;
+  public autoRestartCount: number = 0;
   public startTimestamp: number = 0;
   public asynchronousTask?: IExecutable | null;
   public openFrp?: OpenFrp;
@@ -234,6 +237,7 @@ export default class Instance extends EventEmitter {
     if (cfg.eventTask) {
       configureEntityParams(this.config.eventTask, cfg.eventTask, "autoStart", Boolean);
       configureEntityParams(this.config.eventTask, cfg.eventTask, "autoRestart", Boolean);
+      configureEntityParams(this.config.eventTask, cfg.eventTask, "autoRestartMaxTimes", Number);
       configureEntityParams(this.config.eventTask, cfg.eventTask, "ignore", Boolean);
     }
     if (cfg.terminalOption) {
@@ -366,16 +370,22 @@ export default class Instance extends EventEmitter {
 
     // If automatic restart is enabled, the startup operation is performed immediately
     if (!this.config.eventTask.ignore && this.config.eventTask.autoRestart) {
-      this.execPreset("start")
-        .then(() => {
-          this.println($t("TXT_CODE_instanceConf.info"), $t("TXT_CODE_instanceConf.autoRestart"));
-        })
-        .catch((err) => {
-          this.println(
-            $t("TXT_CODE_instanceConf.error"),
-            $t("TXT_CODE_instanceConf.autoRestartErr", { err: err })
-          );
-        });
+      const maxAutoRestartCount = this.config.eventTask.autoRestartMaxTimes;
+      if (maxAutoRestartCount == -1 || this.autoRestartCount < maxAutoRestartCount) {
+        this.execPreset("start")
+          .then(() => {
+            this.autoRestartCount++;
+            this.println($t("TXT_CODE_instanceConf.info"), $t("TXT_CODE_instanceConf.autoRestart"));
+          })
+          .catch((err) => {
+            this.println(
+              $t("TXT_CODE_instanceConf.error"),
+              $t("TXT_CODE_instanceConf.autoRestartErr", { err: err })
+            );
+          });
+      } else {
+        this.println($t("TXT_CODE_instanceConf.error"), $t("TXT_CODE_894b8e52"));
+      }
     }
 
     this.config.eventTask.ignore = false;
@@ -500,9 +510,14 @@ export default class Instance extends EventEmitter {
     if (typeof text !== "string") return "";
     text = text.replace(/\{mcsm_workspace\}/gim, this.absoluteCwdPath());
     text = text.replace(/\{mcsm_cwd\}/gim, this.absoluteCwdPath());
-    text = text.replace(/\{mcsm_instance_id\}/gim, this.instanceUuid);
     text = text.replace(/\{mcsm_uuid\}/gim, this.instanceUuid);
     text = text.replace(/\{mcsm_random\}/gim, randomUUID());
+    text = text.replace(/\{mcsm_run_as\}/gim, this.config.runAs);
+    text = text.replace(/\{mcsm_steamcmd\}/gim, STEAM_CMD_PATH);
+    text = text.replace(/\{mcsm_instance_id\}/gim, this.instanceUuid);
+    text = text.replace(/\{mcsm_instance_name\}/gim, this.config.nickname);
+    text = text.replace(/\{mcsm_instance_base_port\}/gim, String(this.config.basePort));
+
     const ports = Array.from(
       { length: globalConfiguration.config.portAssignInterval || 1 },
       (_, index) => index + 1
@@ -513,8 +528,6 @@ export default class Instance extends EventEmitter {
       const replacement = String(basePort + portOffset);
       text = text.replace(new RegExp(placeholder, "gim"), replacement);
     });
-    text = text.replace(/\{mcsm_run_as\}/gim, this.config.runAs);
-    text = text.replace(/\{mcsm_steamcmd\}/gim, STEAM_CMD_PATH);
     return text;
   }
 

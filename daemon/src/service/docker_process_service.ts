@@ -14,6 +14,7 @@ import { IInstanceProcess } from "../entity/instance/interface";
 import { $t } from "../i18n";
 import { AsyncTask } from "./async_task_service";
 import logger from "./log";
+import InstanceSubsystem from "./system_instance";
 
 type PublicPortArray = {
   [key: string]: { HostPort: string }[];
@@ -152,8 +153,9 @@ export class SetupDockerContainer extends AsyncTask {
     const workingDir = dockerConfig.workingDir || undefined;
 
     let cwd = instance.absoluteCwdPath();
+    const defaultInstanceDir = InstanceSubsystem.getInstanceDataDir();
     const hostRealPath = toText(process.env.MCSM_DOCKER_WORKSPACE_PATH);
-    if (hostRealPath) {
+    if (hostRealPath && cwd.includes(defaultInstanceDir)) {
       cwd = path.normalize(path.join(hostRealPath, instance.instanceUuid));
     }
 
@@ -185,13 +187,13 @@ export class SetupDockerContainer extends AsyncTask {
     logger.info(`OPEN_PORT: ${JSON.stringify(publicPortArray)}`);
     logger.info(`Volume Mounts: ${JSON.stringify(mounts)}`);
     logger.info(`NET_ALIASES: ${JSON.stringify(dockerConfig.networkAliases)}`);
+
     logger.info(
       `MEM_LIMIT: ${maxMemory ? (maxMemory / 1024 / 1024).toFixed(2) : "--"} MB, Swap: ${
         memorySwap ? (memorySwap / 1024 / 1024).toFixed(2) : "--"
       } MB`
     );
     logger.info(`TYPE: Docker Container`);
-    logger.info("----------------");
 
     if (workingDir) {
       instance.println("INFO", $t("TXT_CODE_e76e49e9") + cwd + " --> " + workingDir + "\n");
@@ -216,7 +218,25 @@ export class SetupDockerContainer extends AsyncTask {
 
     // Start Docker container creation and running
     const docker = new DefaultDocker();
+
+    let entrypoint: string | string[] | undefined = commandList.length ? commandList[0] : undefined;
+    const startCmd = commandList.length > 1 ? commandList.slice(1) : undefined;
+
+    // Compatible with Docker API v29+: Entrypoint must be an array type
+    const { Version: dockerVersion } = await docker.version();
+    const versionNum = dockerVersion.split(".")[0];
+    if (Number(versionNum.replace("v", "")) >= 29 && entrypoint !== undefined) {
+      entrypoint = [entrypoint];
+    }
+
+    logger.info(`Container Entrypoint: ${entrypoint}`);
+    logger.info(`Container Start Command: ${startCmd}`);
+    logger.info(`Docker Version: ${dockerVersion}`);
+    logger.info("----------------");
+
     this.container = await docker.createContainer({
+      Entrypoint: entrypoint,
+      Cmd: startCmd,
       name: containerName,
       Hostname: containerName,
       Image: dockerConfig.image,
@@ -225,8 +245,6 @@ export class SetupDockerContainer extends AsyncTask {
       AttachStderr: true,
       Tty: isTty,
       WorkingDir: dockerConfig.changeWorkdir ? workingDir : undefined,
-      Entrypoint: commandList.length ? commandList[0] : void 0,
-      Cmd: commandList.length > 1 ? commandList.slice(1) : undefined,
       OpenStdin: true,
       StdinOnce: false,
       ExposedPorts: exposedPorts,
@@ -247,13 +265,18 @@ export class SetupDockerContainer extends AsyncTask {
         NetworkMode: dockerConfig.networkMode,
         Mounts: mounts
       },
-      NetworkingConfig: {
-        EndpointsConfig: {
-          [dockerConfig.networkMode || "bridge"]: {
-            Aliases: dockerConfig.networkAliases
+      // Only set NetworkingConfig for non-host network modes
+      // host mode uses the host's network stack and doesn't support EndpointsConfig
+      ...(dockerConfig.networkMode !== "host" &&
+        dockerConfig.networkMode !== "none" && {
+          NetworkingConfig: {
+            EndpointsConfig: {
+              [dockerConfig.networkMode || "bridge"]: {
+                Aliases: dockerConfig.networkAliases
+              }
+            }
           }
-        }
-      }
+        })
     });
 
     await this.container.start();

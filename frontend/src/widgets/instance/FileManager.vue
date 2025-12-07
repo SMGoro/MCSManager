@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import BetweenMenus from "@/components/BetweenMenus.vue";
 import CardPanel from "@/components/CardPanel.vue";
+import { useDownloadFileDialog } from "@/components/fc";
 import { useLayoutCardTools } from "@/hooks/useCardTools";
 import { useFileManager } from "@/hooks/useFileManager";
 import { useRightClickMenu } from "@/hooks/useRightClickMenu";
@@ -57,9 +58,14 @@ const {
   operationForm,
   dataSource,
   breadcrumbs,
+  currentPath,
   clipboard,
   currentDisk,
   isMultiple,
+  activeTab,
+  currentTabs,
+  onEditTabs,
+  handleChangeTab,
   selectChanged,
   getFileList,
   touchFile,
@@ -71,6 +77,7 @@ const {
   zipFile,
   unzipFile,
   downloadFile,
+  downloadFromUrl,
   handleChangeDir,
   handleSearchChange,
   selectedFiles,
@@ -243,7 +250,7 @@ const onFileSelect = (info: UploadChangeParam) => {
 };
 
 const editFile = (fileName: string) => {
-  const path = breadcrumbs[breadcrumbs.length - 1].path + fileName;
+  const path = currentPath.value + fileName;
   FileEditorDialog.value?.openDialog(path, fileName);
 };
 
@@ -348,10 +355,24 @@ const handleRightClickRow = (e: MouseEvent, record: DataType) => {
   return false;
 };
 
+const downloadFromURLFile = async () => {
+  const data = await useDownloadFileDialog();
+  if (!data) return;
+  await downloadFromUrl(data);
+};
+
 onMounted(async () => {
   await getFileStatus();
   dialog.value.loading = true;
-  await getFileList();
+
+  if (currentTabs.value.length) {
+    const thisTab = currentTabs.value[0];
+    activeTab.value = thisTab.key;
+    await getFileList(false, thisTab.path);
+  } else {
+    await getFileList(false);
+  }
+
   dialog.value.loading = false;
 });
 
@@ -380,6 +401,10 @@ onUnmounted(() => {
               }}
             </a-typography-text>
 
+            <a-button type="dashed" @click="() => downloadFromURLFile()">
+              <download-outlined />
+              {{ t("TXT_CODE_5b364aef") }}
+            </a-button>
             <a-upload
               v-model:file-list="fileList"
               :before-upload="() => false"
@@ -518,6 +543,16 @@ onUnmounted(() => {
                 {{ convertFileSize(uploadData.current![1].toString()) }}
               </a-typography-text>
             </div>
+            <a-tabs
+              v-model:activeKey="activeTab"
+              type="editable-card"
+              @edit="onEditTabs"
+              @change="(key) => handleChangeTab(key as string)"
+            >
+              <a-tab-pane v-for="b in currentTabs" :key="b.key" :tab="b.name" :closable="true">
+              </a-tab-pane>
+            </a-tabs>
+
             <div class="flex-wrap items-flex-start">
               <a-select
                 v-if="isShowDiskList"
@@ -542,6 +577,13 @@ onUnmounted(() => {
               </div>
             </div>
 
+            <p
+              v-if="fileStatus?.downloadFileFromURLTask && fileStatus.downloadFileFromURLTask > 0"
+              style="color: #1677ff"
+            >
+              <a-spin />
+              {{ t("TXT_CODE_8b7fe641", { count: fileStatus?.downloadFileFromURLTask }) }}
+            </p>
             <p
               v-if="fileStatus?.instanceFileTask && fileStatus.instanceFileTask > 0"
               style="color: #1677ff"

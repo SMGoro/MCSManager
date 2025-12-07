@@ -11,20 +11,10 @@ import { globalConfiguration } from "../entity/config";
 import Instance from "../entity/instance/instance";
 import InstanceConfig from "../entity/instance/Instance_config";
 import { $t } from "../i18n";
+import { sleep } from "../utils/sleep";
 import logger from "./log";
 import InstanceControl from "./system_instance_control";
 import takeoverContainer from "./takeover_container";
-
-// init instance default install path
-globalConfiguration.load();
-let INSTANCE_DATA_DIR = path.join(process.cwd(), "data/InstanceData");
-if (globalConfiguration.config.defaultInstancePath) {
-  INSTANCE_DATA_DIR = path.normalize(globalConfiguration.config.defaultInstancePath);
-}
-
-if (!fs.existsSync(INSTANCE_DATA_DIR)) {
-  fs.mkdirsSync(INSTANCE_DATA_DIR);
-}
 
 class InstanceSubsystem extends EventEmitter {
   public readonly GLOBAL_INSTANCE = "__MCSM_GLOBAL_INSTANCE__";
@@ -34,38 +24,51 @@ class InstanceSubsystem extends EventEmitter {
 
   public readonly instances = new Map<string, Instance>();
   public readonly instanceStream = new InstanceStreamListener();
+  private instanceDataDir = "";
 
   constructor() {
     super();
+    // init instance default install path
+    globalConfiguration.load();
+    let instanceDataDir = path.join(process.cwd(), "data/InstanceData");
+    if (globalConfiguration.config.defaultInstancePath) {
+      instanceDataDir = path.normalize(globalConfiguration.config.defaultInstancePath);
+    }
+    if (!fs.existsSync(instanceDataDir)) fs.mkdirsSync(instanceDataDir);
+    this.instanceDataDir = path.normalize(instanceDataDir);
+  }
+
+  public getInstanceDataDir() {
+    return this.instanceDataDir;
   }
 
   // start automatically at boot
-  private autoStart() {
-    this.instances.forEach((instance) => {
+  private async autoStart() {
+    await sleep(1000 * 5);
+    for (const instance of this.instances.values()) {
       if (instance.config.eventTask.autoStart && instance.status() == Instance.STATUS_STOP) {
-        setTimeout(() => {
-          instance
-            .execPreset("start")
-            .then(() => {
-              logger.info(
-                $t("TXT_CODE_system_instance.autoStart", {
-                  name: instance.config.nickname,
-                  uuid: instance.instanceUuid
-                })
-              );
-            })
-            .catch((reason) => {
-              logger.error(
-                $t("TXT_CODE_system_instance.autoStartErr", {
-                  name: instance.config.nickname,
-                  uuid: instance.instanceUuid,
-                  reason: reason
-                })
-              );
-            });
-        }, 1000 * 10);
+        instance
+          .execPreset("start")
+          .then(() => {
+            logger.info(
+              $t("TXT_CODE_system_instance.autoStart", {
+                name: instance.config.nickname,
+                uuid: instance.instanceUuid
+              })
+            );
+          })
+          .catch((reason) => {
+            logger.error(
+              $t("TXT_CODE_system_instance.autoStartErr", {
+                name: instance.config.nickname,
+                uuid: instance.instanceUuid,
+                reason: reason
+              })
+            );
+          });
+        await sleep(1000 * 5);
       }
-    });
+    }
   }
 
   // init all instances from local files
@@ -152,7 +155,7 @@ class InstanceSubsystem extends EventEmitter {
     const instance = new Instance(newUuid, new InstanceConfig());
     // Instance working directory verification and automatic creation
     if (!cfg.cwd || cfg.cwd === ".") {
-      cfg.cwd = path.normalize(`${INSTANCE_DATA_DIR}/${instance.instanceUuid}`);
+      cfg.cwd = path.normalize(`${this.instanceDataDir}/${instance.instanceUuid}`);
     }
     if (!fs.existsSync(cfg.cwd)) fs.mkdirsSync(cfg.cwd);
     // Set the default input and output encoding
