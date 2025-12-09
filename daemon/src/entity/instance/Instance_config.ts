@@ -89,6 +89,7 @@ export default class InstanceConfig implements IGlobalInstanceConfig {
   public backupConfig = {
     backupPath: "",
     maxBackupCount: 5,
-    enableDownload: true
+    enableDownload: true,
+    useColdBackup: true
   };
 }

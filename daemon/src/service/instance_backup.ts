@@ -1,4 +1,5 @@
 import fs from "fs-extra";
+import os from "os";
 import path from "path";
 import { compress } from "../common/compress";
 import { $t } from "../i18n";
@@ -276,6 +277,37 @@ export default class InstanceBackupService {
       // 确保备份目录存在
       await fs.ensureDir(backupDir);
 
+      // 检查实例是否正在运行，如果是冷备份则需要停止
+      let wasRunning = instance.status() === Instance.STATUS_RUNNING;
+      const useColdBackup = instance.config.backupConfig?.useColdBackup ?? true;
+      if (useColdBackup && wasRunning) {
+        logger.info(`[Backup] Stopping instance ${instance.instanceUuid} for cold backup`);
+
+        // 停止实例 for cold backup
+        await instance.execPreset("stop");
+
+        // Wait for instance to fully stop (with timeout)
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error("Timeout waiting for instance to stop for cold backup")), 30000);
+        });
+
+        const stopPromise = new Promise((resolve) => {
+          const onExit = () => {
+            instance.removeListener("exit", onExit);
+            resolve(true);
+          };
+          instance.on("exit", onExit);
+        });
+
+        try {
+          await Promise.race([stopPromise, timeoutPromise]);
+          logger.info(`[Backup] Instance ${instance.instanceUuid} stopped successfully for cold backup`);
+        } catch (error) {
+          logger.error(`[Backup] Failed to stop instance ${instance.instanceUuid} for cold backup:`, error);
+          throw new Error(`Failed to stop instance for cold backup: ${error instanceof Error ? error.message : String(error)}`);
+        }
+      }
+
       // 获取备份规则
       const allowRules = await this.getBackupRules(instancePath, "allow");
       const ignoreRules = await this.getBackupRules(instancePath, "ignore");
@@ -302,8 +334,47 @@ export default class InstanceBackupService {
         `[Backup] Creating backup for instance ${instance.instanceUuid}, files: ${filesToBackup.length}`
       );
 
-      // 压缩文件，传入 instancePath 作为基础目录以保持文件夹结构
-      await compress(backupFilePath, filesToBackup, instance.config.fileCode, instancePath);
+      // Create a temporary directory to maintain the instance directory structure in the archive
+      const tempBackupDir = path.join(os.tmpdir(), `mcsmanager_backup_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`);
+      const instanceDirName = path.basename(instancePath);
+      const tempInstanceDir = path.join(tempBackupDir, instanceDirName);
+
+      try {
+        // Create the temporary instance directory
+        await fs.ensureDir(tempInstanceDir);
+
+        // Create each file with hard links to preserve directory structure while being efficient
+        const linkPromises = filesToBackup.map(async (file) => {
+          const relativePath = path.relative(instancePath, file);
+          const targetPath = path.join(tempInstanceDir, relativePath);
+
+          // Ensure parent directory exists
+          await fs.ensureDir(path.dirname(targetPath));
+
+          // Create a hard link to the original file (more efficient than copying)
+          try {
+            await fs.link(file, targetPath);
+          } catch (error) {
+            // If hard linking fails (e.g., across different filesystems), fall back to copying
+            if ((error as NodeJS.ErrnoException).code === 'EXDEV') {
+              await fs.copyFile(file, targetPath);
+            } else {
+              throw error;
+            }
+          }
+        });
+
+        // Wait for all files to be linked/copied
+        await Promise.all(linkPromises);
+
+        // Now compress the temporary directory structure
+        await compress(backupFilePath, [tempInstanceDir], instance.config.fileCode, path.dirname(tempInstanceDir));
+      } finally {
+        // Clean up temporary directory
+        if (fs.pathExistsSync(tempBackupDir)) {
+          await fs.remove(tempBackupDir);
+        }
+      }
 
       // 获取备份文件大小
       const stats = await fs.stat(backupFilePath);
@@ -322,6 +393,19 @@ export default class InstanceBackupService {
       logger.info(
         `[Backup] Backup created successfully: ${backupFileName}, size: ${stats.size} bytes`
       );
+
+      // 如果实例原本是运行的，现在重新启动它（仅适用于冷备份）
+      if (useColdBackup && wasRunning) {
+        logger.info(`[Backup] Restarting instance ${instance.instanceUuid} after cold backup`);
+        setTimeout(async () => {
+          try {
+            await instance.execPreset("start");
+            logger.info(`[Backup] Instance ${instance.instanceUuid} restarted successfully after cold backup`);
+          } catch (error) {
+            logger.error(`[Backup] Failed to restart instance ${instance.instanceUuid} after cold backup:`, error);
+          }
+        }, 1000); // Small delay to ensure backup is complete
+      }
 
       return backupInfo;
     } catch (error: any) {

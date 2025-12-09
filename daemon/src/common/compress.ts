@@ -212,37 +212,63 @@ async function useUnzip(sourceZip: string, destDir: string, code = "utf-8"): Pro
 async function useZip(distZip: string, files: string[], code = "utf-8", baseDir?: string): Promise<boolean> {
   if (!files || files.length == 0) throw new Error(t("TXT_CODE_2038ec2c"));
 
-  const archive = archiver("zip", { zlib: { level: 9 } });
   await fs.ensureDir(path.dirname(distZip));
 
-  const output = fs.createWriteStream(distZip);
-  const finalize = new Promise<void>((resolve, reject) => {
-    output.on("close", () => resolve());
-    output.on("error", (err) => reject(err));
-    archive.on("error", (err) => reject(err));
-  });
+  // Build command to use the GOLANG_ZIP_PATH (ziptools) binary directly
+  const params = ["--mode=1", `--zipPath=${distZip}`, `--code=${code}`];
 
-  archive.pipe(output);
+  // Handle the baseDir to maintain directory structure
+  let workingDir = process.cwd();
 
-  for (const filePath of files) {
-    const stat = await fs.stat(filePath);
-    
-    // Calculate relative path if baseDir is provided
-    let archiveName: string;
-    if (baseDir) {
-      archiveName = path.relative(baseDir, filePath);
-    } else {
-      archiveName = path.basename(filePath);
+  // Process files with proper path handling
+  if (baseDir) {
+    // Use path.resolve to ensure we have a proper absolute path for baseDir
+    const resolvedBaseDir = path.resolve(baseDir);
+    workingDir = resolvedBaseDir;
+    // Ensure baseDir exists
+    await fs.ensureDir(workingDir);
+
+    // Verify each file is within baseDir for security
+    for (const file of files) {
+      // Use path.resolve to get absolute path of file for comparison
+      const resolvedFile = path.resolve(file);
+      // Normalize paths for comparison - handle different path separators
+      const normalizedBaseDir = resolvedBaseDir.replace(/\\/g, "/");
+      const normalizedFile = resolvedFile.replace(/\\/g, "/");
+      
+      if (!normalizedFile.startsWith(normalizedBaseDir + "/") && normalizedFile !== normalizedBaseDir) {
+        throw new Error(`File ${file} is not within base directory ${baseDir}`);
+      }
+
+      // Calculate relative path from baseDir to each file using resolved paths and normalize to use forward slashes
+      const relativePath = path.relative(resolvedBaseDir, resolvedFile).replace(/\\/g, "/");
+      // Ensure the relative path doesn't start with '../' which could indicate wrong calculation
+      if (relativePath.startsWith('../')) {
+        throw new Error(`Calculated relative path for ${file} seems incorrect: ${relativePath}`);
+      }
+      // Ensure relative path is not empty or just current directory
+      if (relativePath === '' || relativePath === '.') {
+        continue; // Skip the base directory itself
+      }
+      params.push(`--file=${relativePath}`);
     }
-    
-    if (stat.isFile()) {
-      archive.file(filePath, { name: archiveName });
-    } else if (stat.isDirectory()) {
-      archive.directory(filePath, archiveName);
+  } else {
+    // Add each file to the command with full path if no baseDir
+    for (const file of files) {
+      params.push(`--file=${file}`);
     }
   }
 
-  await archive.finalize();
-  await finalize;
-  return true;
+  logger.info(`Function useZip(): Command: ${GOLANG_ZIP_PATH} WorkingDir: ${workingDir} Params: ${params.join(" ")}`);
+
+  const subProcess = new ProcessWrapper(
+    GOLANG_ZIP_PATH,
+    params,
+    workingDir, // Working directory ensures relative paths are interpreted from the right context
+    ZIP_TIMEOUT_SECONDS,
+    code
+  );
+
+  subProcess.setErrMsg(COMPRESS_ERROR_MSG);
+  return subProcess.start();
 }

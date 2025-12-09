@@ -56,6 +56,7 @@ declare global {
       backupPath?: string;
       maxBackupCount?: number;
       enableDownload?: boolean;
+      useColdBackup?: boolean;
     };
   }
 
