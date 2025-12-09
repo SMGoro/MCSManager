@@ -128,3 +128,5 @@ src/public/1.png
 
 .iflow/
 IFLOW.md
+daemon/tmp/*
+daemon/bin/*

@@ -489,10 +489,129 @@ defineExpose({
             :tab="t('TXT_CODE_afb12200')"
           ></a-tab-pane>
           <a-tab-pane
-            v-if="!isGlobalTerminal"
+            v-if="!isGlobalTerminal && options"
             :key="TabSettings.ResLimit"
             :tab="t('TXT_CODE_604d8d63')"
-          ></a-tab-pane>
+          >
+            <a-row :gutter="20">
+              <a-col :xs="24" :lg="8" :offset="0">
+                <a-form-item>
+                  <a-typography-title :level="5">{{ t("TXT_CODE_53046822") }}</a-typography-title>
+                  <a-typography-paragraph>
+                    <a-tooltip :title="t('TXT_CODE_750ab5c6')" placement="top">
+                      <a-typography-text type="secondary" class="typography-text-ellipsis">
+                        {{ t("TXT_CODE_750ab5c6") }}
+                      </a-typography-text>
+                    </a-tooltip>
+                  </a-typography-paragraph>
+                  <a-tooltip placement="bottom">
+                    <template #title>
+                      {{ t("TXT_CODE_dce87e42") }}
+                    </template>
+                    <a-input
+                      v-model:value="options.config.docker.cpuUsage"
+                      :allow-clear="true"
+                      :placeholder="t('TXT_CODE_91d857f5')"
+                    />
+                  </a-tooltip>
+                </a-form-item>
+              </a-col>
+              <a-col :xs="24" :lg="8" :offset="0">
+                <a-form-item>
+                  <a-typography-title :level="5">{{ t("TXT_CODE_b0c4e4ae") }}</a-typography-title>
+                  <a-typography-paragraph>
+                    <a-tooltip :title="t('TXT_CODE_2b9e9b5')" placement="top">
+                      <a-typography-text type="secondary" class="typography-text-ellipsis">
+                        {{ t("TXT_CODE_2b9e9b5") }}
+                      </a-typography-text>
+                    </a-tooltip>
+                  </a-typography-paragraph>
+                  <a-tooltip placement="bottom">
+                    <template #title>
+                      {{ t("TXT_CODE_67c765be") }}
+                    </template>
+                    <a-input
+                      v-model:value="options.config.docker.cpusetCpus"
+                      :allow-clear="true"
+                      :placeholder="t('TXT_CODE_30fe1717')"
+                    />
+                  </a-tooltip>
+                </a-form-item>
+              </a-col>
+              <a-col :xs="24" :lg="8" :offset="0">
+                <a-form-item>
+                  <a-typography-title :level="5">{{ t("TXT_CODE_6fe24924") }}</a-typography-title>
+                  <a-typography-paragraph>
+                    <a-tooltip :title="t('TXT_CODE_a0d214ac')" placement="top">
+                      <a-typography-text type="secondary" class="typography-text-ellipsis">
+                        {{ t("TXT_CODE_a0d214ac") }}
+                      </a-typography-text>
+                    </a-tooltip>
+                  </a-typography-paragraph>
+                  <a-input
+                    v-model:value="options.config.docker.memory"
+                    :allow-clear="true"
+                    :placeholder="t('TXT_CODE_80790069')"
+                  />
+                </a-form-item>
+              </a-col>
+
+              <a-col :xs="24" :lg="8" :offset="0">
+                <a-form-item>
+                  <a-typography-title :level="5">{{ t("TXT_CODE_a68b3a9c") }}</a-typography-title>
+                  <a-typography-paragraph>
+                    <a-tooltip :title="t('TXT_CODE_b946a322')" placement="top">
+                      <a-typography-text type="secondary" class="typography-text-ellipsis">
+                        {{ t("TXT_CODE_b946a322") }}
+                      </a-typography-text>
+                    </a-tooltip>
+                  </a-typography-paragraph>
+                  <a-input
+                    v-model:value="options.config.docker.memorySwap"
+                    :allow-clear="true"
+                    :placeholder="t('TXT_CODE_6f1129fb')"
+                  />
+                </a-form-item>
+              </a-col>
+
+              <a-col :xs="24" :lg="8" :offset="0">
+                <a-form-item>
+                  <a-typography-title :level="5">{{ t("TXT_CODE_5c43374f") }}</a-typography-title>
+                  <a-typography-paragraph>
+                    <a-tooltip :title="t('TXT_CODE_a7885cbc')" placement="top">
+                      <a-typography-text type="secondary" class="typography-text-ellipsis">
+                        {{ t("TXT_CODE_a7885cbc") }}
+                      </a-typography-text>
+                    </a-tooltip>
+                  </a-typography-paragraph>
+                  <a-input
+                    v-model:value="options.config.docker.memorySwappiness"
+                    :allow-clear="true"
+                    :placeholder="t('TXT_CODE_6f1129fb')"
+                  />
+                </a-form-item>
+              </a-col>
+
+              <a-col :xs="24" :lg="8" :offset="0">
+                <a-form-item>
+                  <a-typography-title :level="5">{{ t("TXT_CODE_disk_limit") }}</a-typography-title>
+                  <a-typography-paragraph>
+                    <a-tooltip :title="t('TXT_CODE_disk_limit_desc')" placement="top">
+                      <a-typography-text type="secondary" class="typography-text-ellipsis">
+                        {{ t("TXT_CODE_disk_limit_desc") }}
+                      </a-typography-text>
+                    </a-tooltip>
+                  </a-typography-paragraph>
+                  <a-input
+                    v-model:value="options.config.docker.maxSpace"
+                    :allow-clear="true"
+                    :placeholder="t('TXT_CODE_disk_limit_placeholder')"
+                    type="number"
+                  />
+                </a-form-item>
+              </a-col>
+            </a-row>
+          </a-tab-pane>
           <a-tab-pane
             v-if="!isGlobalTerminal"
             :key="TabSettings.FileManagement"
