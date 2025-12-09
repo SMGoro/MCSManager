@@ -2785,6 +2785,8 @@
   "TXT_CODE_system_instance_control.illegalName": "Illegal task name. Only underscores, numbers, letters, and some local language characters are supported.",
   "TXT_CODE_ui.help": "[Terminal] The daemon has basic interactive functionality. Please enter 'help' for more information.",
   "TXT_CODE_version.versionDetectErr": "Version Check Failed",
+  "TXT_CODE_dc8de4ff": "Auto",
+  "TXT_CODE_dc053043": "Set the icon image?",
   "TXT_CODE_dd559000": "Could not find remote with given daemon ID!",
   "TXT_CODE_bbe23ee7": "Node direct connection address mappings",
   "TXT_CODE_497568db": "Configure how the node is directly connected when user reaches panel from different endpoints, useful when node is behind a reverse proxy.",
