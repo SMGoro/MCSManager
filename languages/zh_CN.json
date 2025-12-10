@@ -1717,6 +1717,7 @@
   "TXT_CODE_app.developInfo": "无法启动，此项目是 MCSManager 开发人员所用项目，普通用户不可直接运行。\n请前往 https://mcsmanager.com/ 了解最新的安装方式。\n如果您要以开发模式运行，请创建 public，src/public 目录并放置前端静态文件再重新运行。",
   "TXT_CODE_app.doc": "参考文档：https://docs.mcsmanager.com/",
   "TXT_CODE_app.exitTip": "你可以使用 Ctrl+C 快捷键即可关闭程序",
+  "TXT_CODE_app.forcedShutdown": "强制关闭已启动，正在关闭所有实例...",
   "TXT_CODE_app.host": "访问地址: http://localhost:{{port}}",
   "TXT_CODE_app.httpSetupError": "HTTP/Socket 服务启动错误，可能是端口被占用，权限不足或网卡设备不可用。",
   "TXT_CODE_app.instanceLoad": "所有应用实例已加载，总计 {{n}} 个",
