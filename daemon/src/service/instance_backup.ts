@@ -536,12 +536,79 @@ export default class InstanceBackupService {
 
     try {
       logger.info(`[Backup] Restoring backup ${fileName} for instance ${instance.instanceUuid}`);
-      
-      // 使用解压功能恢复备份
-      const { decompress } = require("../common/compress");
-      await decompress(backupPath, instancePath, instance.config.fileCode);
 
-      logger.info(`[Backup] Backup restored successfully: ${fileName}`);
+      // 使用解压功能恢复备份 - 首先解压到临时目录 to check the structure
+      const os = require("os");
+      const tempRestoreDir = path.join(os.tmpdir(), `mcsmanager_restore_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`);
+
+      try {
+        // Create temporary directory
+        await fs.ensureDir(tempRestoreDir);
+
+        // Decompress to temporary directory first
+        const { decompress } = require("../common/compress");
+        await decompress(backupPath, tempRestoreDir, instance.config.fileCode);
+
+        // Check what's in the temp directory after extraction
+        const extractedItems = await fs.readdir(tempRestoreDir);
+
+        if (extractedItems.length === 1) {
+          // If there's only one item and it's a directory, it's likely the extra folder issue
+          const firstItemPath = path.join(tempRestoreDir, extractedItems[0]);
+          const firstItemStat = await fs.stat(firstItemPath);
+
+          if (firstItemStat.isDirectory()) {
+            // This is the extra folder case - move contents from the subdirectory to destination
+            const sourceDir = firstItemPath;
+            const destDir = instancePath;
+
+            // Ensure destination directory exists
+            await fs.ensureDir(destDir);
+
+            // Move all contents from sourceDir to destDir
+            const files = await fs.readdir(sourceDir);
+            for (const file of files) {
+              const sourceFilePath = path.join(sourceDir, file);
+              const destFilePath = path.join(destDir, file);
+
+              // Remove destination if it already exists
+              if (await fs.pathExists(destFilePath)) {
+                await fs.remove(destFilePath);
+              }
+
+              // Move the file/directory
+              await fs.move(sourceFilePath, destFilePath, { overwrite: true });
+            }
+          } else {
+            // Single file, move it directly
+            const sourceFilePath = path.join(tempRestoreDir, extractedItems[0]);
+            const destFilePath = path.join(instancePath, extractedItems[0]);
+            await fs.move(sourceFilePath, destFilePath, { overwrite: true });
+          }
+        } else if (extractedItems.length > 1) {
+          // Multiple items at root level, move all to destination
+          for (const item of extractedItems) {
+            const sourceItemPath = path.join(tempRestoreDir, item);
+            const destItemPath = path.join(instancePath, item);
+
+            // Remove destination if it already exists
+            if (await fs.pathExists(destItemPath)) {
+              await fs.remove(destItemPath);
+            }
+
+            // Move the item
+            await fs.move(sourceItemPath, destItemPath, { overwrite: true });
+          }
+        }
+        // If extractedItems.length === 0, nothing to do
+
+        logger.info(`[Backup] Backup restored successfully: ${fileName}`);
+      } finally {
+        // Clean up temporary directory
+        if (await fs.pathExists(tempRestoreDir)) {
+          await fs.remove(tempRestoreDir);
+        }
+      }
     } catch (error: any) {
       logger.error(`[Backup] Failed to restore backup ${fileName}:`, error);
       throw new Error($t("TXT_CODE_instance_backup.restoreBackupFailed", { err: error.message }));
