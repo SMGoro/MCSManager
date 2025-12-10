@@ -1815,6 +1815,7 @@
   "TXT_CODE_app.developInfo": "開始できません。このプロジェクトは MCSManager 開発者によって使用されており、一般ユーザーは直接操作できません。\n\n最新のインストール方法については、https://mcsmanager.com/ にアクセスしてください。\n\n開発モードで実行する場合は、public src/public ディレクトリを作成し、フロントエンドの静的ファイルを配置して、再度実行してください。",
   "TXT_CODE_app.doc": "参考ドキュメント：https://docs.mcsmanager.com/",
   "TXT_CODE_app.exitTip": "Ctrl C ショートカット キーを使用してプログラムを閉じることができます。",
+  "TXT_CODE_app.forcedShutdown": "強制シャットダウンが開始されました、すべてのインスタンスを閉じています...",
   "TXT_CODE_app.host": "アクセスアドレス: http://localhost:{{port}}",
   "TXT_CODE_app.httpSetupError": "HTTP/Socket サービスの開始時にエラーが発生しました。接続ポートが占有されているか、権限が不十分であるか、ネットワーク カード デバイスが使用できない可能性があります。",
   "TXT_CODE_app.instanceLoad": "すべてのアプリ インスタンスがロードされました、合計 {{n}}",
