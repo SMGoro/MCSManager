@@ -2989,5 +2989,8 @@
   "TXT_CODE_ecaf78a2": "Docker 映像不存在",
   "TXT_CODE_f3031262": "Docker 容器已存在",
   "TXT_CODE_f4b52ed4": "Docker 容器建立失败",
-  "TXT_CODE_fffce4a8": "Docker 容器启动失败"
+  "TXT_CODE_fffce4a8": "Docker 容器启动失败",
+  "TXT_CODE_3409258a": "进程启动失败，请检查实例日志获取更多信息。",
+  "TXT_CODE_973414e1": "当前启动命令",
+  "TXT_CODE_44b585c7": "当前使用的镜像"
 }
