@@ -82,6 +82,16 @@ class InstanceSubsystem extends EventEmitter {
 
         instanceConfig.eventTask.ignore = false;
 
+        // Ensure backupConfig is initialized for old instances
+        if (!instanceConfig.backupConfig) {
+          instanceConfig.backupConfig = {
+            backupPath: "",
+            maxBackupCount: 5,
+            enableDownload: true,
+            useColdBackup: true
+          };
+        }
+
         // All instances are all function schedulers
         instance
           .forceExec(new FunctionDispatcher())
@@ -322,7 +332,9 @@ class InstanceSubsystem extends EventEmitter {
       if (instance.status() !== Instance.STATUS_STOP) {
         // Skip Docker instances during soft exit
         if (instance.config.processType === "docker") {
-          logger.info(`Skipping Docker instance ${instance.config.nickname} (${instance.instanceUuid}) during soft shutdown...`);
+          logger.info(
+            `Skipping Docker instance ${instance.config.nickname} (${instance.instanceUuid}) during soft shutdown...`
+          );
           continue;
         } else {
           // Soft close general instances (don't force kill)
@@ -338,7 +350,10 @@ class InstanceSubsystem extends EventEmitter {
         let count = 0;
         checkCount++;
         for (const [_, instance] of this.instances) {
-          if (instance.config.processType !== "docker" && instance.status() !== Instance.STATUS_STOP) {
+          if (
+            instance.config.processType !== "docker" &&
+            instance.status() !== Instance.STATUS_STOP
+          ) {
             count++;
             if (checkCount > 10) {
               logger.info(

@@ -194,6 +194,28 @@ export default class FileManager {
     return true;
   }
 
+  // 添加缺失的 getRules 方法
+  async getRules(ruleType: RuleType): Promise<string[]> {
+    try {
+      const ruleFileName = RULE_FILES[ruleType];
+      const ruleFilePath = path.join(this.topPath, ".mcsm", ruleFileName);
+
+      if (!fs.existsSync(ruleFilePath)) {
+        return [];
+      }
+
+      const content = await fs.readFile(ruleFilePath, "utf-8");
+      // 过滤掉空行和注释行
+      return content
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0 && !line.startsWith("#"));
+    } catch (error) {
+      console.warn(`Failed to read ${ruleType} rules:`, error);
+      return [];
+    }
+  }
+
   toAbsolutePath(fileName: string = "") {
     const topAbsolutePath = this.topPath;
 

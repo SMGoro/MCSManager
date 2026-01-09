@@ -618,9 +618,13 @@ router.get(
       const daemonId = String(ctx.query.daemonId);
       const instanceUuid = String(ctx.query.uuid);
       const remoteService = RemoteServiceSubsystem.getInstance(daemonId);
-      const result = await new RemoteRequest(remoteService).request("instance/backup/list", {
-        instanceUuid
-      });
+      const result = await new RemoteRequest(remoteService).request(
+        "instance/backup/list",
+        {
+          instanceUuid
+        },
+        1000 * 60
+      );
       ctx.body = result;
     } catch (err) {
       ctx.body = err;

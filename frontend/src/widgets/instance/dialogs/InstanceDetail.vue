@@ -1,12 +1,17 @@
 <script setup lang="ts">
-import { useDockerEnvEditDialog, usePortEditDialog, useVolumeEditDialog } from "@/components/fc";
+import {
+  useDockerEnvEditDialog,
+  useDockerLabelEditDialog,
+  usePortEditDialog,
+  useVolumeEditDialog
+} from "@/components/fc";
 import { useAppRouters } from "@/hooks/useAppRouters";
 import { INSTANCE_TYPE_TRANSLATION } from "@/hooks/useInstance";
 import { useScreen } from "@/hooks/useScreen";
 import { t } from "@/lang/i18n";
 import { getNetworkModeList, imageList } from "@/services/apis/envImage";
-import { updateAnyInstanceConfig } from "@/services/apis/instance";
 import { fileContent } from "@/services/apis/fileManager";
+import { updateAnyInstanceConfig } from "@/services/apis/instance";
 import { dockerPortsArray } from "@/tools/common";
 import { reportErrorMsg } from "@/tools/validator";
 import type { DockerNetworkModes, InstanceDetail } from "@/types";
@@ -89,14 +94,16 @@ const { state: fileContentState, execute: executeFileContent } = fileContent();
 // 初始化表单数据
 const initFormDetail = async () => {
   if (!props.instanceInfo) return;
-  
+
   options.value = {
     instanceUuid: props.instanceInfo.instanceUuid || "",
     started: props.instanceInfo.started || 0,
     status: props.instanceInfo.status || 0,
     config: props.instanceInfo.config,
     info: props.instanceInfo.info || {},
-    dayjsEndTime: props.instanceInfo.config.endTime ? timestampToDayjs(props.instanceInfo.config.endTime) : undefined,
+    dayjsEndTime: props.instanceInfo.config.endTime
+      ? timestampToDayjs(props.instanceInfo.config.endTime)
+      : undefined,
     networkAliasesText: (props.instanceInfo.config.docker.networkAliases || []).join(", "),
     imageSelectMethod: "SELECT",
     mcsmIgnoreContent: "",
@@ -104,7 +111,7 @@ const initFormDetail = async () => {
     backupIgnoreContent: "",
     backupAllowContent: ""
   };
-  
+
   // 读取 .mcsm/.fileignore 文件
   try {
     await executeFileContent({
@@ -116,14 +123,14 @@ const initFormDetail = async () => {
         target: ".mcsm/.fileignore"
       }
     });
-    
+
     if (fileContentState.value && typeof fileContentState.value === "string") {
       options.value.mcsmIgnoreContent = fileContentState.value;
     }
   } catch (error) {
     options.value.mcsmIgnoreContent = "";
   }
-  
+
   // 读取 .mcsm/.fileallow 文件
   try {
     await executeFileContent({
@@ -135,14 +142,14 @@ const initFormDetail = async () => {
         target: ".mcsm/.fileallow"
       }
     });
-    
+
     if (fileContentState.value && typeof fileContentState.value === "string") {
       options.value.mcsmAllowContent = fileContentState.value;
     }
   } catch (error) {
     options.value.mcsmAllowContent = "";
   }
-  
+
   // 读取 .mcsm/.backupignore 文件
   try {
     await executeFileContent({
@@ -154,14 +161,14 @@ const initFormDetail = async () => {
         target: ".mcsm/.backupignore"
       }
     });
-    
+
     if (fileContentState.value && typeof fileContentState.value === "string") {
       options.value.backupIgnoreContent = fileContentState.value;
     }
   } catch (error) {
     options.value.backupIgnoreContent = "";
   }
-  
+
   // 读取 .mcsm/.backupallow 文件
   try {
     await executeFileContent({
@@ -173,7 +180,7 @@ const initFormDetail = async () => {
         target: ".mcsm/.backupallow"
       }
     });
-    
+
     if (fileContentState.value && typeof fileContentState.value === "string") {
       options.value.backupAllowContent = fileContentState.value;
     }
@@ -334,7 +341,7 @@ const encodeFormData = async () => {
   if (!options.value) {
     throw new Error("Options is not initialized");
   }
-  
+
   const postData = _.cloneDeep(unref(options));
   if (postData) {
     postData.config.endTime = dayjsToTimestamp(postData.dayjsEndTime);
@@ -361,7 +368,7 @@ const encodeFormData = async () => {
         // 不中断提交过程，只记录错误
       }
     }
-    
+
     // 保存 .mcsm/.fileallow 文件内容
     if (options.value.mcsmAllowContent !== undefined) {
       try {
@@ -380,7 +387,7 @@ const encodeFormData = async () => {
         // 不中断提交过程，只记录错误
       }
     }
-    
+
     // 保存 .mcsm/.backupignore 文件内容
     if (options.value.backupIgnoreContent !== undefined) {
       try {
@@ -398,7 +405,7 @@ const encodeFormData = async () => {
         console.error("保存 .mcsm/.backupignore 文件失败:", err);
       }
     }
-    
+
     // 保存 .mcsm/.backupallow 文件内容
     if (options.value.backupAllowContent !== undefined) {
       try {
@@ -421,7 +428,7 @@ const encodeFormData = async () => {
   throw new Error("Ref Options is null");
 };
 
-const handleEditDockerConfig = async (type: "port" | "volume" | "env") => {
+const handleEditDockerConfig = async (type: "port" | "volume" | "env" | "label") => {
   if (type === "port" && options.value?.config) {
     // "25565:25565/tcp 8080:8080/tcp" -> Array
     const portArray = dockerPortsArray(options.value?.config.docker.ports || []);
@@ -455,6 +462,19 @@ const handleEditDockerConfig = async (type: "port" | "volume" | "env") => {
     const envsArray = result.map((v) => `${v.label}=${v.value}`);
     options.value.config.docker.env = envsArray;
   }
+
+  if (type === "label" && options.value?.config) {
+    const labels = options.value.config.docker.labels?.map((v) => {
+      const tmp = v.split("=");
+      return {
+        label: tmp[0] || "",
+        value: tmp[1] || ""
+      };
+    });
+    const result = await useDockerLabelEditDialog(labels);
+    const labelsArray = result.map((v) => `${v.label}=${v.value}`);
+    options.value.config.docker.labels = labelsArray;
+  }
 };
 
 defineExpose({
@@ -481,13 +501,520 @@ defineExpose({
       </a-tooltip>
       <div>
         <a-tabs v-model:activeKey="activeKey">
-          <a-tab-pane :key="TabSettings.Basic" :tab="t('TXT_CODE_cc7b54b9')"></a-tab-pane>
-          <a-tab-pane :key="TabSettings.Advanced" :tab="t('TXT_CODE_31a1d824')"></a-tab-pane>
+          <a-tab-pane :key="TabSettings.Basic" :tab="t('TXT_CODE_cc7b54b9')">
+            <a-row :gutter="20">
+              <a-col :xs="24" :lg="8" :offset="0">
+                <a-form-item name="nickname">
+                  <a-typography-title :level="5" class="require-field">
+                    {{ t("TXT_CODE_f70badb9") }}
+                  </a-typography-title>
+                  <a-typography-paragraph>
+                    <a-tooltip :title="t('TXT_CODE_818928ba')" placement="top">
+                      <a-typography-text type="secondary" class="typography-text-ellipsis">
+                        {{ t("TXT_CODE_818928ba") }}
+                      </a-typography-text>
+                    </a-tooltip>
+                  </a-typography-paragraph>
+                  <a-input v-model:value="options.config.nickname" :disabled="isGlobalTerminal" />
+                </a-form-item>
+              </a-col>
+              <a-col :xs="24" :lg="8" :offset="0">
+                <a-form-item>
+                  <a-typography-title :level="5" class="require-field">
+                    {{ t("TXT_CODE_2f291d8b") }}
+                  </a-typography-title>
+                  <a-typography-paragraph>
+                    <a-tooltip :title="t('TXT_CODE_be608c82')" placement="top">
+                      <a-typography-text type="secondary" class="typography-text-ellipsis">
+                        {{ t("TXT_CODE_be608c82") }}
+                      </a-typography-text>
+                    </a-tooltip>
+                  </a-typography-paragraph>
+                  <a-select
+                    v-model:value="options.config.type"
+                    :placeholder="t('TXT_CODE_3bb646e4')"
+                    :disabled="isGlobalTerminal"
+                  >
+                    <a-select-option
+                      v-for="(item, key) in INSTANCE_TYPE_TRANSLATION"
+                      :key="key"
+                      :value="key"
+                    >
+                      {{ item }}
+                    </a-select-option>
+                  </a-select>
+                </a-form-item>
+              </a-col>
+
+              <a-col :xs="24" :lg="8" :offset="0">
+                <a-form-item>
+                  <a-typography-title :level="5">{{ t("TXT_CODE_fa920c0") }}</a-typography-title>
+                  <a-typography-paragraph>
+                    <a-tooltip :title="t('TXT_CODE_b029a155')" placement="top">
+                      <a-typography-text type="secondary" class="typography-text-ellipsis">
+                        {{ t("TXT_CODE_b029a155") }}
+                      </a-typography-text>
+                    </a-tooltip>
+                  </a-typography-paragraph>
+                  <a-date-picker
+                    v-model:value="options.dayjsEndTime"
+                    size="large"
+                    show-time
+                    style="width: 100%"
+                    :placeholder="t('TXT_CODE_e3a77a77')"
+                    :disabled="isGlobalTerminal"
+                  />
+                </a-form-item>
+              </a-col>
+
+              <a-col :xs="24" :offset="0">
+                <a-form-item name="startCommand">
+                  <a-typography-title :level="5">
+                    {{ t("TXT_CODE_d12fa808") }}
+                  </a-typography-title>
+                  <a-typography-paragraph>
+                    <a-typography-text type="secondary" class="typography-text-ellipsis">
+                      <!-- eslint-disable-next-line vue/no-v-html -->
+                      <span v-html="t('TXT_CODE_A0000001')"></span>
+                    </a-typography-text>
+                  </a-typography-paragraph>
+                  <a-input-group compact style="display: flex">
+                    <a-textarea
+                      v-model:value="options.config.startCommand"
+                      :rows="5"
+                      style="min-height: 40px"
+                      :placeholder="isDockerMode ? t('TXT_CODE_98e7c829') : t('TXT_CODE_f50cfe2')"
+                    />
+                  </a-input-group>
+                </a-form-item>
+              </a-col>
+
+              <a-col :xs="24" :offset="0">
+                <a-form-item name="stopCommand">
+                  <a-typography-title :level="5">
+                    {{ t("TXT_CODE_11cfe3a1") }}
+                  </a-typography-title>
+                  <a-typography-paragraph>
+                    <a-typography-text type="secondary" class="typography-text-ellipsis">
+                      {{ t("TXT_CODE_7ec7ccb8") }}
+                    </a-typography-text>
+                  </a-typography-paragraph>
+                  <a-input-group compact style="display: flex">
+                    <a-input
+                      v-model:value="options.config.stopCommand"
+                      :placeholder="t('TXT_CODE_83053cd5')"
+                    />
+                  </a-input-group>
+                </a-form-item>
+              </a-col>
+            </a-row>
+          </a-tab-pane>
+          <a-tab-pane :key="TabSettings.Advanced" :tab="t('TXT_CODE_31a1d824')">
+            <a-row :gutter="20">
+              <a-col :xs="24" :offset="0">
+                <a-form-item name="cwd">
+                  <a-typography-title :level="5" class="require-field">
+                    {{ t("TXT_CODE_ee67e1a3") }}
+                  </a-typography-title>
+                  <a-typography-paragraph>
+                    <a-tooltip :title="t('TXT_CODE_962d9320')" placement="top">
+                      <a-typography-text type="secondary" class="typography-text-ellipsis">
+                        {{ t("TXT_CODE_962d9320") }}
+                      </a-typography-text>
+                    </a-tooltip>
+                  </a-typography-paragraph>
+                  <a-input v-model:value="options.config.cwd" />
+                </a-form-item>
+              </a-col>
+              <a-col :xs="24" :offset="0">
+                <a-form-item>
+                  <a-typography-title :level="5">{{ t("TXT_CODE_bb0b9711") }}</a-typography-title>
+                  <a-typography-paragraph>
+                    <a-tooltip :title="updateCommandDesc" placement="top">
+                      <a-typography-text type="secondary" class="typography-text-ellipsis">
+                        <span>{{ t("TXT_CODE_4f387c5a") }}</span>
+                        <br />
+                        <!-- eslint-disable-next-line vue/no-v-html -->
+                        <span v-html="updateCommandDesc"> </span>
+                      </a-typography-text>
+                    </a-tooltip>
+                  </a-typography-paragraph>
+                  <!-- eslint-disable-next-line vue/html-quotes -->
+                  <a-input
+                    v-model:value="options.config.updateCommand"
+                    :placeholder="UPDATE_CMD_TEMPLATE"
+                    :disabled="isGlobalTerminal"
+                  />
+                </a-form-item>
+              </a-col>
+              <a-col :xs="24" :lg="6" :offset="0">
+                <a-form-item>
+                  <a-typography-title :level="5">{{ t("TXT_CODE_disk_limit") }}</a-typography-title>
+                  <a-typography-paragraph>
+                    <a-tooltip :title="t('TXT_CODE_disk_limit_desc')" placement="top">
+                      <a-typography-text type="secondary" class="typography-text-ellipsis">
+                        {{ t("TXT_CODE_disk_limit_desc") }}
+                      </a-typography-text>
+                    </a-tooltip>
+                  </a-typography-paragraph>
+                  <a-input
+                    v-model:value="options.config.docker.maxSpace"
+                    :allow-clear="true"
+                    :placeholder="t('TXT_CODE_disk_limit_placeholder')"
+                    type="number"
+                  />
+                </a-form-item>
+              </a-col>
+              <a-col :xs="24" :lg="6" :offset="0">
+                <a-form-item>
+                  <a-typography-title :level="5" class="require-field">
+                    {{ t("TXT_CODE_f041de90") }}
+                  </a-typography-title>
+                  <a-typography-paragraph>
+                    <a-tooltip :title="t('TXT_CODE_6e69b5a5')" placement="top">
+                      <a-typography-text
+                        type="secondary"
+                        :class="[!isPhone && 'two-line-height', 'typography-text-ellipsis']"
+                      >
+                        {{ t("TXT_CODE_6e69b5a5") }}
+                      </a-typography-text>
+                    </a-tooltip>
+                  </a-typography-paragraph>
+                  <a-select
+                    v-model:value="options.config.fileCode"
+                    :placeholder="t('TXT_CODE_3bb646e4')"
+                  >
+                    <a-select-option v-for="item in TERMINAL_CODE" :key="item" :value="item">
+                    </a-select-option>
+                  </a-select>
+                </a-form-item>
+              </a-col>
+              <a-col :xs="24" :lg="12" :offset="0">
+                <a-form-item>
+                  <a-typography-title :level="5">{{ t("TXT_CODE_fffaeb17") }}</a-typography-title>
+                  <a-typography-paragraph>
+                    <a-tooltip
+                      :title="t('TXT_CODE_fffaeb18') + '\n' + t('TXT_CODE_50a2b2d9')"
+                      placement="top"
+                    >
+                      <a-typography-text
+                        type="secondary"
+                        :class="[!isPhone && 'two-line-height', 'typography-text-ellipsis']"
+                      >
+                        <span>{{ t("TXT_CODE_fffaeb18") }}</span>
+                      </a-typography-text>
+                    </a-tooltip>
+                  </a-typography-paragraph>
+                  <a-input
+                    v-model:value="options.config.runAs"
+                    :placeholder="t('TXT_CODE_9aa83c05')"
+                    :disabled="isGlobalTerminal"
+                    style="width: 400px"
+                  />
+                </a-form-item>
+              </a-col>
+            </a-row>
+          </a-tab-pane>
           <a-tab-pane
             v-if="!isGlobalTerminal"
             :key="TabSettings.Docker"
             :tab="t('TXT_CODE_afb12200')"
-          ></a-tab-pane>
+          >
+            <a-row :gutter="20">
+              <a-col :xs="24" :lg="8" :offset="0">
+                <a-form-item>
+                  <a-typography-title :level="5">
+                    {{ t("TXT_CODE_61a8296e") }}
+                  </a-typography-title>
+                  <a-typography-paragraph>
+                    <a-tooltip :title="t('TXT_CODE_2b221e02')" placement="top">
+                      <a-typography-text
+                        type="secondary"
+                        :class="[!isPhone && 'two-line-height', 'typography-text-ellipsis']"
+                      >
+                        {{ t("TXT_CODE_2b221e02") }}
+                      </a-typography-text>
+                    </a-tooltip>
+                  </a-typography-paragraph>
+                  <div class="ml-4">
+                    <a-switch
+                      v-model:checked="options.config.processType"
+                      :disabled="isGlobalTerminal"
+                      checked-value="docker"
+                      un-checked-value="general"
+                    >
+                      <template #checkedChildren><check-outlined /></template>
+                      <template #unCheckedChildren><close-outlined /></template>
+                    </a-switch>
+                  </div>
+                </a-form-item>
+              </a-col>
+              <template v-if="isDockerMode">
+                <a-col v-if="options.imageSelectMethod === 'SELECT'" :xs="24" :lg="16" :offset="0">
+                  <a-form-item :name="['docker', 'image']">
+                    <a-typography-title :level="5" :class="{ 'require-field': isDockerMode }">
+                      {{ t("TXT_CODE_6904cb3") }}
+                    </a-typography-title>
+                    <a-typography-paragraph>
+                      <a-tooltip :title="t('TXT_CODE_ec734b5c')" placement="top">
+                        <a-typography-text
+                          type="secondary"
+                          :class="[!isPhone && 'two-line-height', 'typography-text-ellipsis']"
+                        >
+                          {{ t("TXT_CODE_ec734b5c") }}
+                        </a-typography-text>
+                      </a-tooltip>
+                    </a-typography-paragraph>
+                    <a-select
+                      v-model:value="options.config.docker.image"
+                      size="large"
+                      style="width: 100%"
+                      :placeholder="t('TXT_CODE_3bb646e4')"
+                      @focus="loadImages"
+                      @change="(_, option: DefaultOptionType) => selectImage(option)"
+                    >
+                      <a-select-option
+                        v-for="item in dockerImages"
+                        :key="item.value"
+                        :value="item.value"
+                      >
+                        {{ item.label }}
+                      </a-select-option>
+                    </a-select>
+                  </a-form-item>
+                </a-col>
+
+                <a-col v-if="options.imageSelectMethod === 'EDIT'" :xs="24" :lg="16" :offset="0">
+                  <a-form-item :name="['docker', 'image']">
+                    <a-typography-title :level="5" :class="{ 'require-field': isDockerMode }">
+                      {{ t("TXT_CODE_4e4d9680") }}
+                    </a-typography-title>
+                    <a-typography-paragraph>
+                      <a-tooltip :title="t('TXT_CODE_4a570d32')" placement="top">
+                        <a-typography-text
+                          type="secondary"
+                          :class="[!isPhone && 'two-line-height', 'typography-text-ellipsis']"
+                        >
+                          {{ t("TXT_CODE_4a570d32") }}
+                        </a-typography-text>
+                      </a-tooltip>
+                    </a-typography-paragraph>
+                    <a-input
+                      v-model:value="options.config.docker.image"
+                      :placeholder="t('TXT_CODE_d7638d7b')"
+                    />
+                  </a-form-item>
+                </a-col>
+
+                <a-col :xs="24" :lg="8" :offset="0">
+                  <a-form-item name="changeWorkdir">
+                    <a-typography-title :level="5" :class="{ 'require-field': isDockerMode }">
+                      {{ t("TXT_CODE_5484094a") }}
+                    </a-typography-title>
+                    <a-typography-paragraph>
+                      <a-tooltip :title="t('TXT_CODE_60dd05d5')" placement="top">
+                        <a-typography-text
+                          type="secondary"
+                          :class="[!isPhone && 'two-line-height', 'typography-text-ellipsis']"
+                        >
+                          {{ t("TXT_CODE_60dd05d5") }}
+                        </a-typography-text>
+                      </a-tooltip>
+                    </a-typography-paragraph>
+                    <a-switch
+                      v-model:checked="options.config.docker.changeWorkdir"
+                      :disabled="isGlobalTerminal"
+                      :checked-value="true"
+                      :un-checked-value="false"
+                    >
+                      <template #checkedChildren><check-outlined /></template>
+                      <template #unCheckedChildren><close-outlined /></template>
+                    </a-switch>
+                  </a-form-item>
+                </a-col>
+
+                <a-col :xs="24" :lg="16" :offset="0">
+                  <a-form-item>
+                    <a-typography-title :level="5">{{ t("TXT_CODE_81979d0f") }}</a-typography-title>
+                    <a-typography-paragraph>
+                      <a-tooltip :title="t('TXT_CODE_c800cb31')" placement="top">
+                        <a-typography-text
+                          type="secondary"
+                          :class="[!isPhone && 'two-line-height', 'typography-text-ellipsis']"
+                        >
+                          {{ t("TXT_CODE_c800cb31") }}
+                        </a-typography-text>
+                      </a-tooltip>
+                    </a-typography-paragraph>
+                    <a-input
+                      v-model:value="options.config.docker.workingDir"
+                      :placeholder="t('TXT_CODE_2082f659')"
+                    />
+                  </a-form-item>
+                </a-col>
+
+                <a-col :xs="24" :lg="8" :offset="0">
+                  <a-form-item>
+                    <a-typography-title :level="5">{{ t("TXT_CODE_d9c73520") }}</a-typography-title>
+                    <a-typography-paragraph>
+                      <a-tooltip :title="t('TXT_CODE_828ea87f')" placement="top">
+                        <a-typography-text type="secondary" class="typography-text-ellipsis">
+                          {{ t("TXT_CODE_828ea87f") }}
+                        </a-typography-text>
+                      </a-tooltip>
+                    </a-typography-paragraph>
+                    <a-input-group compact>
+                      <a-button type="default" @click="() => handleEditDockerConfig('volume')">
+                        {{ t("TXT_CODE_ad207008") }}
+                      </a-button>
+                    </a-input-group>
+                  </a-form-item>
+                </a-col>
+
+                <a-col :xs="24" :lg="8" :offset="0">
+                  <a-form-item>
+                    <a-typography-title :level="5">{{ t("TXT_CODE_cf88c936") }}</a-typography-title>
+                    <a-typography-paragraph>
+                      <a-tooltip :title="t('TXT_CODE_1a37f514')" placement="top">
+                        <a-typography-text type="secondary" class="typography-text-ellipsis">
+                          {{ t("TXT_CODE_1a37f514") }}
+                        </a-typography-text>
+                      </a-tooltip>
+                    </a-typography-paragraph>
+                    <a-input-group compact>
+                      <a-button type="default" @click="() => handleEditDockerConfig('port')">
+                        {{ t("TXT_CODE_ad207008") }}
+                      </a-button>
+                    </a-input-group>
+                  </a-form-item>
+                </a-col>
+
+                <a-col :xs="24" :lg="8" :offset="0">
+                  <a-form-item name="basePort">
+                    <a-typography-title :level="5">
+                      {{ t("TXT_CODE_15f5fb07") }}
+                    </a-typography-title>
+                    <a-typography-paragraph>
+                      <a-tooltip :title="t('TXT_CODE_dfd06954')" placement="top">
+                        <a-typography-text type="secondary" class="typography-text-ellipsis">
+                          {{ t("TXT_CODE_dfd06954") }}
+                        </a-typography-text>
+                      </a-tooltip>
+                    </a-typography-paragraph>
+                    <a-input
+                      v-model:value="options.config.basePort"
+                      :min="0"
+                      :max="65535"
+                      :placeholder="t('TXT_CODE_3bb646e4')"
+                      :disabled="isGlobalTerminal"
+                      style="width: 100%"
+                    />
+                  </a-form-item>
+                </a-col>
+
+                <a-col :xs="24" :lg="8" :offset="0">
+                  <a-form-item>
+                    <a-typography-title :level="5">{{ t("TXT_CODE_b916a8dc") }}</a-typography-title>
+                    <a-typography-paragraph>
+                      <a-tooltip :title="t('TXT_CODE_33ce1c5c')" placement="top">
+                        <a-typography-text type="secondary" class="typography-text-ellipsis">
+                          {{ t("TXT_CODE_33ce1c5c") }}
+                        </a-typography-text>
+                      </a-tooltip>
+                    </a-typography-paragraph>
+                    <a-input-group compact>
+                      <a-button type="default" @click="() => handleEditDockerConfig('env')">
+                        {{ t("TXT_CODE_ad207008") }}
+                      </a-button>
+                    </a-input-group>
+                  </a-form-item>
+                </a-col>
+
+                <a-col :xs="24" :lg="8" :offset="0">
+                  <a-form-item>
+                    <a-typography-title :level="5">{{ t("TXT_CODE_g1c43s2h") }}</a-typography-title>
+                    <a-typography-paragraph>
+                      <a-tooltip :title="t('TXT_CODE_MimBB1Ea')" placement="top">
+                        <a-typography-text type="secondary" class="typography-text-ellipsis">
+                          {{ t("TXT_CODE_MimBB1Ea") }}
+                        </a-typography-text>
+                      </a-tooltip>
+                    </a-typography-paragraph>
+                    <a-input-group compact>
+                      <a-button type="default" @click="() => handleEditDockerConfig('label')">
+                        {{ t("TXT_CODE_ad207008") }}
+                      </a-button>
+                    </a-input-group>
+                  </a-form-item>
+                </a-col>
+
+                <a-col :xs="24" :lg="8" :offset="0">
+                  <a-form-item :name="['docker', 'networkMode']">
+                    <a-typography-title :level="5" :class="{ 'require-field': isDockerMode }">
+                      {{ t("TXT_CODE_efcef926") }}
+                    </a-typography-title>
+                    <a-typography-paragraph>
+                      <a-tooltip :title="t('TXT_CODE_38a430d8')" placement="top">
+                        <a-typography-text type="secondary" class="typography-text-ellipsis">
+                          {{ t("TXT_CODE_38a430d8") }}
+                        </a-typography-text>
+                      </a-tooltip>
+                    </a-typography-paragraph>
+                    <a-select
+                      v-model:value="options.config.docker.networkMode"
+                      size="large"
+                      style="width: 100%"
+                      :placeholder="t('TXT_CODE_3bb646e4')"
+                      @focus="loadNetworkModes"
+                    >
+                      <a-select-option
+                        v-for="item in networkModes"
+                        :key="item"
+                        :value="item.Name"
+                      ></a-select-option>
+                    </a-select>
+                  </a-form-item>
+                </a-col>
+
+                <a-col :xs="24" :lg="8" :offset="0">
+                  <a-form-item>
+                    <a-typography-title :level="5">{{ t("TXT_CODE_10194e6a") }}</a-typography-title>
+                    <a-typography-paragraph>
+                      <a-tooltip :title="t('TXT_CODE_97655c5d')" placement="top">
+                        <a-typography-text type="secondary" class="typography-text-ellipsis">
+                          {{ t("TXT_CODE_97655c5d") }}
+                        </a-typography-text>
+                      </a-tooltip>
+                    </a-typography-paragraph>
+                    <a-input
+                      v-model:value="options.networkAliasesText"
+                      :placeholder="t('TXT_CODE_8d4882b0')"
+                    />
+                  </a-form-item>
+                </a-col>
+
+                <a-col :xs="24" :lg="8" :offset="0">
+                  <a-form-item>
+                    <a-typography-title :level="5">{{ t("TXT_CODE_c3a3b6b1") }}</a-typography-title>
+                    <a-typography-paragraph>
+                      <a-tooltip :title="t('TXT_CODE_d1c78fbf')" placement="top">
+                        <a-typography-text type="secondary" class="typography-text-ellipsis">
+                          {{ t("TXT_CODE_d1c78fbf") }}
+                        </a-typography-text>
+                      </a-tooltip>
+                    </a-typography-paragraph>
+                    <a-tooltip placement="bottom">
+                      <template #title>{{ t("TXT_CODE_8d4882b0") }}</template>
+                      <a-input
+                        v-model:value="options.config.docker.containerName"
+                        :placeholder="t('TXT_CODE_f6047384')"
+                      />
+                    </a-tooltip>
+                  </a-form-item>
+                </a-col>
+              </template>
+            </a-row>
+          </a-tab-pane>
           <a-tab-pane
             v-if="!isGlobalTerminal && options"
             :key="TabSettings.ResLimit"
@@ -591,7 +1118,6 @@ defineExpose({
                   />
                 </a-form-item>
               </a-col>
-
             </a-row>
           </a-tab-pane>
           <a-tab-pane
@@ -609,476 +1135,6 @@ defineExpose({
         layout="vertical"
         autocomplete="off"
       >
-        <a-row v-if="activeKey === TabSettings.Basic" :gutter="20">
-          <a-col :xs="24" :lg="8" :offset="0">
-            <a-form-item name="nickname">
-              <a-typography-title :level="5" class="require-field">
-                {{ t("TXT_CODE_f70badb9") }}
-              </a-typography-title>
-              <a-typography-paragraph>
-                <a-tooltip :title="t('TXT_CODE_818928ba')" placement="top">
-                  <a-typography-text type="secondary" class="typography-text-ellipsis">
-                    {{ t("TXT_CODE_818928ba") }}
-                  </a-typography-text>
-                </a-tooltip>
-              </a-typography-paragraph>
-              <a-input v-model:value="options.config.nickname" :disabled="isGlobalTerminal" />
-            </a-form-item>
-          </a-col>
-          <a-col :xs="24" :lg="8" :offset="0">
-            <a-form-item>
-              <a-typography-title :level="5" class="require-field">
-                {{ t("TXT_CODE_2f291d8b") }}
-              </a-typography-title>
-              <a-typography-paragraph>
-                <a-tooltip :title="t('TXT_CODE_be608c82')" placement="top">
-                  <a-typography-text type="secondary" class="typography-text-ellipsis">
-                    {{ t("TXT_CODE_be608c82") }}
-                  </a-typography-text>
-                </a-tooltip>
-              </a-typography-paragraph>
-              <a-select
-                v-model:value="options.config.type"
-                :placeholder="t('TXT_CODE_3bb646e4')"
-                :disabled="isGlobalTerminal"
-              >
-                <a-select-option
-                  v-for="(item, key) in INSTANCE_TYPE_TRANSLATION"
-                  :key="key"
-                  :value="key"
-                >
-                  {{ item }}
-                </a-select-option>
-              </a-select>
-            </a-form-item>
-          </a-col>
-
-          <a-col :xs="24" :lg="8" :offset="0">
-            <a-form-item>
-              <a-typography-title :level="5">{{ t("TXT_CODE_fa920c0") }}</a-typography-title>
-              <a-typography-paragraph>
-                <a-tooltip :title="t('TXT_CODE_b029a155')" placement="top">
-                  <a-typography-text type="secondary" class="typography-text-ellipsis">
-                    {{ t("TXT_CODE_b029a155") }}
-                  </a-typography-text>
-                </a-tooltip>
-              </a-typography-paragraph>
-              <a-date-picker
-                v-model:value="options.dayjsEndTime"
-                size="large"
-                show-time
-                style="width: 100%"
-                :placeholder="t('TXT_CODE_e3a77a77')"
-                :disabled="isGlobalTerminal"
-              />
-            </a-form-item>
-          </a-col>
-
-          <a-col :xs="24" :offset="0">
-            <a-form-item name="startCommand">
-              <a-typography-title :level="5">
-                {{ t("TXT_CODE_d12fa808") }}
-              </a-typography-title>
-              <a-typography-paragraph>
-                <a-tooltip :title="t('TXT_CODE_A0000001')" placement="top">
-                  <a-typography-text type="secondary" class="typography-text-ellipsis">
-                    <!-- eslint-disable-next-line vue/no-v-html -->
-                    <span v-html="t('TXT_CODE_A0000001')"></span>
-                  </a-typography-text>
-                </a-tooltip>
-              </a-typography-paragraph>
-              <a-input-group compact style="display: flex">
-                <a-textarea
-                  v-model:value="options.config.startCommand"
-                  :rows="5"
-                  style="min-height: 40px"
-                  :placeholder="isDockerMode ? t('TXT_CODE_98e7c829') : t('TXT_CODE_f50cfe2')"
-                />
-              </a-input-group>
-            </a-form-item>
-          </a-col>
-        </a-row>
-        <a-row v-if="activeKey === TabSettings.Advanced" :gutter="20">
-          <a-col :xs="24" :offset="0">
-            <a-form-item name="cwd">
-              <a-typography-title :level="5" class="require-field">
-                {{ t("TXT_CODE_ee67e1a3") }}
-              </a-typography-title>
-              <a-typography-paragraph>
-                <a-tooltip :title="t('TXT_CODE_962d9320')" placement="top">
-                  <a-typography-text type="secondary" class="typography-text-ellipsis">
-                    {{ t("TXT_CODE_962d9320") }}
-                  </a-typography-text>
-                </a-tooltip>
-              </a-typography-paragraph>
-              <a-input v-model:value="options.config.cwd" />
-            </a-form-item>
-          </a-col>
-          <a-col :xs="24" :offset="0">
-            <a-form-item>
-              <a-typography-title :level="5">{{ t("TXT_CODE_bb0b9711") }}</a-typography-title>
-              <a-typography-paragraph>
-                <a-tooltip :title="updateCommandDesc" placement="top">
-                  <a-typography-text type="secondary" class="typography-text-ellipsis">
-                    <span>{{ t("TXT_CODE_4f387c5a") }}</span>
-                    <br />
-                    <!-- eslint-disable-next-line vue/no-v-html -->
-                    <span v-html="updateCommandDesc"> </span>
-                  </a-typography-text>
-                </a-tooltip>
-              </a-typography-paragraph>
-              <!-- eslint-disable-next-line vue/html-quotes -->
-              <a-input
-                v-model:value="options.config.updateCommand"
-                :placeholder="UPDATE_CMD_TEMPLATE"
-                :disabled="isGlobalTerminal"
-              />
-            </a-form-item>
-          </a-col>
-          <a-col :xs="24" :lg="6" :offset="0">
-            <a-form-item>
-              <a-typography-title :level="5" class="require-field">
-                {{ t("TXT_CODE_f041de90") }}
-              </a-typography-title>
-              <a-typography-paragraph>
-                <a-tooltip :title="t('TXT_CODE_6e69b5a5')" placement="top">
-                  <a-typography-text
-                    type="secondary"
-                    :class="[!isPhone && 'two-line-height', 'typography-text-ellipsis']"
-                  >
-                    {{ t("TXT_CODE_6e69b5a5") }}
-                  </a-typography-text>
-                </a-tooltip>
-              </a-typography-paragraph>
-              <a-select
-                v-model:value="options.config.fileCode"
-                :placeholder="t('TXT_CODE_3bb646e4')"
-              >
-                <a-select-option v-for="item in TERMINAL_CODE" :key="item" :value="item">
-                </a-select-option>
-              </a-select>
-            </a-form-item>
-          </a-col>
-          <a-col :xs="24" :lg="16" :offset="0">
-            <a-form-item>
-              <a-typography-title :level="5">{{ t("TXT_CODE_fffaeb17") }}</a-typography-title>
-              <a-typography-paragraph>
-                <a-tooltip
-                  :title="t('TXT_CODE_fffaeb18') + '\n' + t('TXT_CODE_50a2b2d9')"
-                  placement="top"
-                >
-                  <a-typography-text
-                    type="secondary"
-                    :class="[!isPhone && 'two-line-height', 'typography-text-ellipsis']"
-                  >
-                    <span>{{ t("TXT_CODE_fffaeb18") }}</span>
-                  </a-typography-text>
-                </a-tooltip>
-              </a-typography-paragraph>
-              <a-input
-                v-model:value="options.config.runAs"
-                :placeholder="t('TXT_CODE_9aa83c05')"
-                :disabled="isGlobalTerminal"
-                style="width: 400px"
-              />
-            </a-form-item>
-          </a-col>
-          <a-col :xs="24" :lg="8" :offset="0">
-            <a-form-item>
-              <a-typography-title :level="5">{{ t("TXT_CODE_disk_limit") }}</a-typography-title>
-              <a-typography-paragraph>
-                <a-tooltip :title="t('TXT_CODE_disk_limit_desc')" placement="top">
-                  <a-typography-text type="secondary" class="typography-text-ellipsis">
-                    {{ t("TXT_CODE_disk_limit_desc") }}
-                  </a-typography-text>
-                </a-tooltip>
-              </a-typography-paragraph>
-              <a-input
-                v-model:value="options.config.docker.maxSpace"
-                :allow-clear="true"
-                :placeholder="t('TXT_CODE_disk_limit_placeholder')"
-                type="number"
-              />
-            </a-form-item>
-          </a-col>
-        </a-row>
-        <a-row v-if="activeKey === TabSettings.Docker" :gutter="20">
-          <a-col :xs="24" :lg="8" :offset="0">
-            <a-form-item>
-              <a-typography-title :level="5">
-                {{ t("TXT_CODE_61a8296e") }}
-              </a-typography-title>
-              <a-typography-paragraph>
-                <a-tooltip :title="t('TXT_CODE_2b221e02')" placement="top">
-                  <a-typography-text
-                    type="secondary"
-                    :class="[!isPhone && 'two-line-height', 'typography-text-ellipsis']"
-                  >
-                    {{ t("TXT_CODE_2b221e02") }}
-                  </a-typography-text>
-                </a-tooltip>
-              </a-typography-paragraph>
-              <div class="ml-4">
-                <a-switch
-                  v-model:checked="options.config.processType"
-                  :disabled="isGlobalTerminal"
-                  checked-value="docker"
-                  un-checked-value="general"
-                >
-                  <template #checkedChildren><check-outlined /></template>
-                  <template #unCheckedChildren><close-outlined /></template>
-                </a-switch>
-              </div>
-            </a-form-item>
-          </a-col>
-          <template v-if="isDockerMode">
-            <a-col v-if="options.imageSelectMethod === 'SELECT'" :xs="24" :lg="16" :offset="0">
-              <a-form-item :name="['docker', 'image']">
-                <a-typography-title :level="5" :class="{ 'require-field': isDockerMode }">
-                  {{ t("TXT_CODE_6904cb3") }}
-                </a-typography-title>
-                <a-typography-paragraph>
-                  <a-tooltip :title="t('TXT_CODE_ec734b5c')" placement="top">
-                    <a-typography-text
-                      type="secondary"
-                      :class="[!isPhone && 'two-line-height', 'typography-text-ellipsis']"
-                    >
-                      {{ t("TXT_CODE_ec734b5c") }}
-                    </a-typography-text>
-                  </a-tooltip>
-                </a-typography-paragraph>
-                <a-select
-                  v-model:value="options.config.docker.image"
-                  size="large"
-                  style="width: 100%"
-                  :placeholder="t('TXT_CODE_3bb646e4')"
-                  @focus="loadImages"
-                  @change="(_, option: DefaultOptionType) => selectImage(option)"
-                >
-                  <a-select-option
-                    v-for="item in dockerImages"
-                    :key="item.value"
-                    :value="item.value"
-                  >
-                    {{ item.label }}
-                  </a-select-option>
-                </a-select>
-              </a-form-item>
-            </a-col>
-
-            <a-col v-if="options.imageSelectMethod === 'EDIT'" :xs="24" :lg="16" :offset="0">
-              <a-form-item :name="['docker', 'image']">
-                <a-typography-title :level="5" :class="{ 'require-field': isDockerMode }">
-                  {{ t("TXT_CODE_4e4d9680") }}
-                </a-typography-title>
-                <a-typography-paragraph>
-                  <a-tooltip :title="t('TXT_CODE_4a570d32')" placement="top">
-                    <a-typography-text
-                      type="secondary"
-                      :class="[!isPhone && 'two-line-height', 'typography-text-ellipsis']"
-                    >
-                      {{ t("TXT_CODE_4a570d32") }}
-                    </a-typography-text>
-                  </a-tooltip>
-                </a-typography-paragraph>
-                <a-input
-                  v-model:value="options.config.docker.image"
-                  :placeholder="t('TXT_CODE_d7638d7b')"
-                />
-              </a-form-item>
-            </a-col>
-
-            <a-col :xs="24" :lg="8" :offset="0">
-              <a-form-item name="changeWorkdir">
-                <a-typography-title :level="5" :class="{ 'require-field': isDockerMode }">
-                  {{ t("TXT_CODE_5484094a") }}
-                </a-typography-title>
-                <a-typography-paragraph>
-                  <a-tooltip :title="t('TXT_CODE_60dd05d5')" placement="top">
-                    <a-typography-text
-                      type="secondary"
-                      :class="[!isPhone && 'two-line-height', 'typography-text-ellipsis']"
-                    >
-                      {{ t("TXT_CODE_60dd05d5") }}
-                    </a-typography-text>
-                  </a-tooltip>
-                </a-typography-paragraph>
-                <a-switch
-                  v-model:checked="options.config.docker.changeWorkdir"
-                  :disabled="isGlobalTerminal"
-                  :checked-value="true"
-                  :un-checked-value="false"
-                >
-                  <template #checkedChildren><check-outlined /></template>
-                  <template #unCheckedChildren><close-outlined /></template>
-                </a-switch>
-              </a-form-item>
-            </a-col>
-
-            <a-col :xs="24" :lg="16" :offset="0">
-              <a-form-item>
-                <a-typography-title :level="5">{{ t("TXT_CODE_81979d0f") }}</a-typography-title>
-                <a-typography-paragraph>
-                  <a-tooltip :title="t('TXT_CODE_c800cb31')" placement="top">
-                    <a-typography-text
-                      type="secondary"
-                      :class="[!isPhone && 'two-line-height', 'typography-text-ellipsis']"
-                    >
-                      {{ t("TXT_CODE_c800cb31") }}
-                    </a-typography-text>
-                  </a-tooltip>
-                </a-typography-paragraph>
-                <a-input
-                  v-model:value="options.config.docker.workingDir"
-                  :placeholder="t('TXT_CODE_2082f659')"
-                />
-              </a-form-item>
-            </a-col>
-
-            <a-col :xs="24" :lg="8" :offset="0">
-              <a-form-item>
-                <a-typography-title :level="5">{{ t("TXT_CODE_d9c73520") }}</a-typography-title>
-                <a-typography-paragraph>
-                  <a-tooltip :title="t('TXT_CODE_828ea87f')" placement="top">
-                    <a-typography-text type="secondary" class="typography-text-ellipsis">
-                      {{ t("TXT_CODE_828ea87f") }}
-                    </a-typography-text>
-                  </a-tooltip>
-                </a-typography-paragraph>
-                <a-input-group compact>
-                  <a-button type="default" @click="() => handleEditDockerConfig('volume')">
-                    {{ t("TXT_CODE_ad207008") }}
-                  </a-button>
-                </a-input-group>
-              </a-form-item>
-            </a-col>
-
-            <a-col :xs="24" :lg="8" :offset="0">
-              <a-form-item>
-                <a-typography-title :level="5">{{ t("TXT_CODE_cf88c936") }}</a-typography-title>
-                <a-typography-paragraph>
-                  <a-tooltip :title="t('TXT_CODE_1a37f514')" placement="top">
-                    <a-typography-text type="secondary" class="typography-text-ellipsis">
-                      {{ t("TXT_CODE_1a37f514") }}
-                    </a-typography-text>
-                  </a-tooltip>
-                </a-typography-paragraph>
-                <a-input-group compact>
-                  <a-button type="default" @click="() => handleEditDockerConfig('port')">
-                    {{ t("TXT_CODE_ad207008") }}
-                  </a-button>
-                </a-input-group>
-              </a-form-item>
-            </a-col>
-
-            <a-col :xs="24" :lg="8" :offset="0">
-              <a-form-item name="basePort">
-                <a-typography-title :level="5">
-                  {{ t("TXT_CODE_15f5fb07") }}
-                </a-typography-title>
-                <a-typography-paragraph>
-                  <a-tooltip :title="t('TXT_CODE_dfd06954')" placement="top">
-                    <a-typography-text type="secondary" class="typography-text-ellipsis">
-                      {{ t("TXT_CODE_dfd06954") }}
-                    </a-typography-text>
-                  </a-tooltip>
-                </a-typography-paragraph>
-                <a-input
-                  v-model:value="options.config.basePort"
-                  :min="0"
-                  :max="65535"
-                  :placeholder="t('TXT_CODE_3bb646e4')"
-                  :disabled="isGlobalTerminal"
-                  style="width: 100%"
-                />
-              </a-form-item>
-            </a-col>
-
-            <a-col :xs="24" :lg="8" :offset="0">
-              <a-form-item>
-                <a-typography-title :level="5">{{ t("TXT_CODE_b916a8dc") }}</a-typography-title>
-                <a-typography-paragraph>
-                  <a-tooltip :title="t('TXT_CODE_33ce1c5c')" placement="top">
-                    <a-typography-text type="secondary" class="typography-text-ellipsis">
-                      {{ t("TXT_CODE_33ce1c5c") }}
-                    </a-typography-text>
-                  </a-tooltip>
-                </a-typography-paragraph>
-                <a-input-group compact>
-                  <a-button type="default" @click="() => handleEditDockerConfig('env')">
-                    {{ t("TXT_CODE_ad207008") }}
-                  </a-button>
-                </a-input-group>
-              </a-form-item>
-            </a-col>
-
-            <a-col :xs="24" :lg="8" :offset="0">
-              <a-form-item :name="['docker', 'networkMode']">
-                <a-typography-title :level="5" :class="{ 'require-field': isDockerMode }">
-                  {{ t("TXT_CODE_efcef926") }}
-                </a-typography-title>
-                <a-typography-paragraph>
-                  <a-tooltip :title="t('TXT_CODE_38a430d8')" placement="top">
-                    <a-typography-text type="secondary" class="typography-text-ellipsis">
-                      {{ t("TXT_CODE_38a430d8") }}
-                    </a-typography-text>
-                  </a-tooltip>
-                </a-typography-paragraph>
-                <a-select
-                  v-model:value="options.config.docker.networkMode"
-                  size="large"
-                  style="width: 100%"
-                  :placeholder="t('TXT_CODE_3bb646e4')"
-                  @focus="loadNetworkModes"
-                >
-                  <a-select-option
-                    v-for="item in networkModes"
-                    :key="item"
-                    :value="item.Name"
-                  ></a-select-option>
-                </a-select>
-              </a-form-item>
-            </a-col>
-
-            <a-col :xs="24" :lg="8" :offset="0">
-              <a-form-item>
-                <a-typography-title :level="5">{{ t("TXT_CODE_10194e6a") }}</a-typography-title>
-                <a-typography-paragraph>
-                  <a-tooltip :title="t('TXT_CODE_97655c5d')" placement="top">
-                    <a-typography-text type="secondary" class="typography-text-ellipsis">
-                      {{ t("TXT_CODE_97655c5d") }}
-                    </a-typography-text>
-                  </a-tooltip>
-                </a-typography-paragraph>
-                <a-input
-                  v-model:value="options.networkAliasesText"
-                  :placeholder="t('TXT_CODE_8d4882b0')"
-                />
-              </a-form-item>
-            </a-col>
-
-            <a-col :xs="24" :lg="8" :offset="0">
-              <a-form-item>
-                <a-typography-title :level="5">{{ t("TXT_CODE_c3a3b6b1") }}</a-typography-title>
-                <a-typography-paragraph>
-                  <a-tooltip :title="t('TXT_CODE_d1c78fbf')" placement="top">
-                    <a-typography-text type="secondary" class="typography-text-ellipsis">
-                      {{ t("TXT_CODE_d1c78fbf") }}
-                    </a-typography-text>
-                  </a-tooltip>
-                </a-typography-paragraph>
-                <a-tooltip placement="bottom">
-                  <template #title>{{ t("TXT_CODE_8d4882b0") }}</template>
-                  <a-input
-                    v-model:value="options.config.docker.containerName"
-                    :placeholder="t('TXT_CODE_f6047384')"
-                  />
-                </a-tooltip>
-              </a-form-item>
-            </a-col>
-          </template>
-        </a-row>
-
         <!-- 文件管理标签页 -->
         <a-row v-if="activeKey === TabSettings.FileManagement" :gutter="20">
           <!-- 备份配置 -->
@@ -1193,7 +1249,9 @@ defineExpose({
           <!-- 文件管理规则 -->
           <a-col :xs="24" :lg="24" :offset="0">
             <a-divider />
-            <a-typography-title :level="5">{{ t("TXT_CODE_fileManagementRules") }}</a-typography-title>
+            <a-typography-title :level="5">
+              {{ t("TXT_CODE_fileManagementRules") }}
+            </a-typography-title>
             <a-typography-paragraph>
               <a-typography-text type="secondary">
                 {{ t("TXT_CODE_fileManagementRulesDesc") }}

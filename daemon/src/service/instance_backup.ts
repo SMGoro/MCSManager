@@ -2,9 +2,9 @@ import fs from "fs-extra";
 import os from "os";
 import path from "path";
 import { compress } from "../common/compress";
+import Instance from "../entity/instance/instance";
 import { $t } from "../i18n";
 import logger from "./log";
-import Instance from "../entity/instance/instance";
 
 // 使用动态导入避免类型冲突
 const loadMinimatch = () => require("minimatch");
@@ -63,11 +63,7 @@ export default class InstanceBackupService {
   /**
    * 匹配规则
    */
-  private static matchRule(
-    pattern: string,
-    normalizedPath: string,
-    minimatchLib: any
-  ): boolean {
+  private static matchRule(pattern: string, normalizedPath: string, minimatchLib: any): boolean {
     if (!pattern) return false;
 
     const matchOptions = { dot: true } as const;
@@ -239,7 +235,7 @@ export default class InstanceBackupService {
 
       for (const entry of entries) {
         const fullPath = path.join(currentPath, entry.name);
-        
+
         if (await this.shouldBackup(fullPath, instancePath, allowRules, ignoreRules)) {
           if (entry.isDirectory()) {
             await processDirectory(fullPath);
@@ -259,11 +255,36 @@ export default class InstanceBackupService {
    */
   private static getBackupDir(instance: Instance): string {
     const backupPath = instance.config.backupConfig?.backupPath;
-    if (backupPath && path.isAbsolute(backupPath)) {
-      return backupPath;
+    const candidate =
+      backupPath && path.isAbsolute(backupPath)
+        ? backupPath
+        : path.join(process.cwd(), DEFAULT_BACKUP_DIR, instance.instanceUuid);
+    return this.normalizeBackupDir(candidate, instance);
+  }
+
+  private static normalizeBackupDir(candidate: string, instance: Instance): string {
+    if (!fs.existsSync(candidate)) {
+      return candidate;
     }
-    // 默认备份路径
-    return path.join(process.cwd(), DEFAULT_BACKUP_DIR, instance.instanceUuid);
+
+    try {
+      const stats = fs.statSync(candidate);
+      if (!stats.isDirectory()) {
+        const fallback = path.join(process.cwd(), DEFAULT_BACKUP_DIR, instance.instanceUuid);
+        logger.warn(
+          `[Backup] Backup path ${candidate} is not a directory, falling back to ${fallback}`
+        );
+        return fallback;
+      }
+    } catch (error: any) {
+      const fallback = path.join(process.cwd(), DEFAULT_BACKUP_DIR, instance.instanceUuid);
+      logger.warn(
+        `[Backup] Failed to access backup path ${candidate}: ${error.message}, falling back to ${fallback}`
+      );
+      return fallback;
+    }
+
+    return candidate;
   }
 
   /**
@@ -288,7 +309,10 @@ export default class InstanceBackupService {
 
         // Wait for instance to fully stop (with timeout)
         const timeoutPromise = new Promise((_, reject) => {
-          setTimeout(() => reject(new Error("Timeout waiting for instance to stop for cold backup")), 30000);
+          setTimeout(
+            () => reject(new Error("Timeout waiting for instance to stop for cold backup")),
+            30000
+          );
         });
 
         const stopPromise = new Promise((resolve) => {
@@ -301,10 +325,19 @@ export default class InstanceBackupService {
 
         try {
           await Promise.race([stopPromise, timeoutPromise]);
-          logger.info(`[Backup] Instance ${instance.instanceUuid} stopped successfully for cold backup`);
+          logger.info(
+            `[Backup] Instance ${instance.instanceUuid} stopped successfully for cold backup`
+          );
         } catch (error) {
-          logger.error(`[Backup] Failed to stop instance ${instance.instanceUuid} for cold backup:`, error);
-          throw new Error(`Failed to stop instance for cold backup: ${error instanceof Error ? error.message : String(error)}`);
+          logger.error(
+            `[Backup] Failed to stop instance ${instance.instanceUuid} for cold backup:`,
+            error
+          );
+          throw new Error(
+            `Failed to stop instance for cold backup: ${
+              error instanceof Error ? error.message : String(error)
+            }`
+          );
         }
       }
 
@@ -335,7 +368,10 @@ export default class InstanceBackupService {
       );
 
       // Create a temporary directory to maintain the instance directory structure in the archive
-      const tempBackupDir = path.join(os.tmpdir(), `mcsmanager_backup_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`);
+      const tempBackupDir = path.join(
+        os.tmpdir(),
+        `mcsmanager_backup_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`
+      );
       const instanceDirName = path.basename(instancePath);
       const tempInstanceDir = path.join(tempBackupDir, instanceDirName);
 
@@ -356,7 +392,7 @@ export default class InstanceBackupService {
             await fs.link(file, targetPath);
           } catch (error) {
             // If hard linking fails (e.g., across different filesystems), fall back to copying
-            if ((error as NodeJS.ErrnoException).code === 'EXDEV') {
+            if ((error as NodeJS.ErrnoException).code === "EXDEV") {
               await fs.copyFile(file, targetPath);
             } else {
               throw error;
@@ -368,7 +404,12 @@ export default class InstanceBackupService {
         await Promise.all(linkPromises);
 
         // Now compress the temporary directory structure
-        await compress(backupFilePath, [tempInstanceDir], instance.config.fileCode, path.dirname(tempInstanceDir));
+        await compress(
+          backupFilePath,
+          [tempInstanceDir],
+          instance.config.fileCode,
+          path.dirname(tempInstanceDir)
+        );
       } finally {
         // Clean up temporary directory
         if (fs.pathExistsSync(tempBackupDir)) {
@@ -400,16 +441,24 @@ export default class InstanceBackupService {
         setTimeout(async () => {
           try {
             await instance.execPreset("start");
-            logger.info(`[Backup] Instance ${instance.instanceUuid} restarted successfully after cold backup`);
+            logger.info(
+              `[Backup] Instance ${instance.instanceUuid} restarted successfully after cold backup`
+            );
           } catch (error) {
-            logger.error(`[Backup] Failed to restart instance ${instance.instanceUuid} after cold backup:`, error);
+            logger.error(
+              `[Backup] Failed to restart instance ${instance.instanceUuid} after cold backup:`,
+              error
+            );
           }
         }, 1000); // Small delay to ensure backup is complete
       }
 
       return backupInfo;
     } catch (error: any) {
-      logger.error(`[Backup] Failed to create backup for instance ${instance.instanceUuid}:`, error);
+      logger.error(
+        `[Backup] Failed to create backup for instance ${instance.instanceUuid}:`,
+        error
+      );
       throw new Error($t("TXT_CODE_instance_backup.createBackupFailed", { err: error.message }));
     }
   }
@@ -425,7 +474,7 @@ export default class InstanceBackupService {
     if (!fs.existsSync(backupDir)) return;
 
     const backups = await this.listBackups(instance);
-    
+
     // 按时间戳排序，最新的在前
     backups.sort((a, b) => b.timestamp - a.timestamp);
 
@@ -451,7 +500,13 @@ export default class InstanceBackupService {
       return [];
     }
 
-    const files = await fs.readdir(backupDir);
+    let files: string[];
+    try {
+      files = await fs.readdir(backupDir);
+    } catch (error: any) {
+      logger.error(`[Backup] Failed to read backup directory ${backupDir}:`, error);
+      return [];
+    }
     const backups: IBackupInfo[] = [];
 
     for (const file of files) {
@@ -460,7 +515,7 @@ export default class InstanceBackupService {
       const filePath = path.join(backupDir, file);
       try {
         const stats = await fs.stat(filePath);
-        
+
         // 从文件名提取时间戳
         const match = file.match(/backup_.*_(\d+)\.zip$/);
         const timestamp = match ? parseInt(match[1]) : stats.mtimeMs;
@@ -539,7 +594,10 @@ export default class InstanceBackupService {
 
       // 使用解压功能恢复备份 - 首先解压到临时目录 to check the structure
       const os = require("os");
-      const tempRestoreDir = path.join(os.tmpdir(), `mcsmanager_restore_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`);
+      const tempRestoreDir = path.join(
+        os.tmpdir(),
+        `mcsmanager_restore_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`
+      );
 
       try {
         // Create temporary directory
