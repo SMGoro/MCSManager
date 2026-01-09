@@ -124,9 +124,13 @@ src/public/1.png
 /.idea/*
 */.idea/*
 
+<<<<<<< HEAD
 .turbo
 
 .iflow/
 IFLOW.md
 daemon/tmp/*
 daemon/bin/*
+=======
+.turbo
+>>>>>>> feat/disk-limit

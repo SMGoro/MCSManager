@@ -7,9 +7,9 @@ import { compress, decompress } from "../common/compress";
 import { globalConfiguration } from "../entity/config";
 import { $t, i18next } from "../i18n";
 import { normalizedJoin } from "../tools/filepath";
+import { DiskQuotaService } from "./disk_quota_service";
 // 使用动态导入避免类型冲突
 const loadMinimatch = () => require("minimatch");
-import { DiskQuotaService } from "./disk_quota_service";
 
 const ERROR_MSG_01 = $t("TXT_CODE_system_file.illegalAccess");
 const MAX_EDIT_SIZE = 1024 * 1024 * 5;
@@ -22,7 +22,6 @@ const RULE_FILES: Record<RuleType, string> = {
 };
 
 const HIDDEN_ENTRIES = new Set([".fileignore", ".fileallow", ".mcsm"]);
-
 
 export default class FileManager {
   public cwd: string = ".";
@@ -47,38 +46,17 @@ export default class FileManager {
   }
 
   /**
-   * 获取规则列表并缓存
+   * Helper method to check disk quota before write operations
+   * Throws error if quota would be exceeded
    */
-  private async getRules(type: RuleType): Promise<string[]> {
-    if (this.fileManagementRules) {
-      const fromConfig =
-        type === "allow"
-          ? this.fileManagementRules.whitelist ?? []
-          : this.fileManagementRules.blacklist ?? [];
-      if (fromConfig.length) {
-        return fromConfig;
-      }
-    }
+  private async checkDiskQuotaForWrite(absPath: string, additionalSize: number): Promise<void> {
+    const quotaService = DiskQuotaService.getInstance();
 
-    try {
-      const mcsmDirPath = path.join(this.topPath, ".mcsm");
-      const rulesFilePath = path.join(mcsmDirPath, RULE_FILES[type]);
+    // Normalize path to use forward slashes for consistent processing
+    const normalizedPath = absPath.replace(/\\/g, "/");
 
-      if (!fs.existsSync(mcsmDirPath)) {
-        fs.mkdirSync(mcsmDirPath, { recursive: true });
-      }
-
-      if (!fs.existsSync(rulesFilePath)) {
-        return [];
-      }
-
-      const content = await fs.readFile(rulesFilePath, "utf-8");
-      return content
-        .split("\n")
-        .map((line) => line.trim())
-        .filter((line) => line !== "" && !line.startsWith("#"));
-    } catch (error) {
-      return [];
+    if (await quotaService.wouldExceedQuota(normalizedPath, additionalSize)) {
+      throw new Error($t("TXT_CODE_disk_quota_exceeded_write"));
     }
   }
 
@@ -130,13 +108,8 @@ export default class FileManager {
       }
 
       if (allowParentAccess) {
-        const normalizedRule = dirPattern.startsWith("/")
-          ? dirPattern.slice(1)
-          : dirPattern;
-        return (
-          normalizedPath.length > 0 &&
-          normalizedRule.startsWith(`${normalizedPath}/`)
-        );
+        const normalizedRule = dirPattern.startsWith("/") ? dirPattern.slice(1) : dirPattern;
+        return normalizedPath.length > 0 && normalizedRule.startsWith(`${normalizedPath}/`);
       }
 
       return false;
@@ -200,11 +173,7 @@ export default class FileManager {
     return allowed ? "allow" : "deny";
   }
 
-  private evaluateIgnoreRules(
-    normalizedPath: string,
-    rules: string[],
-    minimatchLib: any
-  ): boolean {
+  private evaluateIgnoreRules(normalizedPath: string, rules: string[], minimatchLib: any): boolean {
     if (rules.length === 0) return true;
 
     for (const rule of rules) {
@@ -262,18 +231,18 @@ export default class FileManager {
 
   async check(destPath: string) {
     if (this.isRootTopRath()) return true;
-    
+
     // 隐藏配置文件自身和.mcsm目录
     const fileName = path.basename(destPath);
-    if (fileName === '.fileignore' || fileName === '.fileallow' || fileName === '.mcsm') {
+    if (fileName === ".fileignore" || fileName === ".fileallow" || fileName === ".mcsm") {
       return false;
     }
-    
+
     // 隐藏.mcsm目录下的所有文件
-    if (destPath.includes('.mcsm/')) {
+    if (destPath.includes(".mcsm/")) {
       return false;
     }
-    
+
     const absolutePath = this.toAbsolutePath(destPath);
     const relativePath = path.relative(this.topPath, absolutePath);
     const normalizedPath = relativePath.replace(/\\/g, "/");
@@ -338,7 +307,7 @@ export default class FileManager {
         if (HIDDEN_ENTRIES.has(item.name)) {
           return { item, isValid: false };
         }
-        
+
         // Check if this specific file/directory is allowed based on the file management rules
         const isValid = await this.check(item.name);
         return { item, isValid };
@@ -347,8 +316,8 @@ export default class FileManager {
 
     // 过滤出有效的项目
     const validItems = filteredResults
-      .filter(result => result.isValid)
-      .map(result => result.item);
+      .filter((result) => result.isValid)
+      .map((result) => result.item);
 
     const total = validItems.length;
 
@@ -420,60 +389,22 @@ export default class FileManager {
   async writeFile(fileName: string, data: string) {
     if (!this.check(fileName)) throw new Error(ERROR_MSG_01);
     const absPath = this.toAbsolutePath(fileName);
-    
-    // Check disk quota before writing (if this file is part of an instance)
-    const quotaService = DiskQuotaService.getInstance();
-    // Extract instance UUID from path if it's an instance directory
-    // Path format is typically like /path/to/daemon/data/InstanceData/{instance_uuid}/...
-    const pathSegments = absPath.split('/');
-    const instanceDataIndex = pathSegments.indexOf('InstanceData');
-    if (instanceDataIndex !== -1 && pathSegments.length > instanceDataIndex + 1) {
-      const instanceUuid = pathSegments[instanceDataIndex + 1];
-      // Check if this instance has a quota set
-      const quota = quotaService["quotaMap"].get(instanceUuid);
-      if (quota && quota > 0) {
-        // Get current disk usage for the instance directory
-        const instanceDir = path.join('/', ...pathSegments.slice(0, instanceDataIndex + 2)); // Include InstanceData and UUID
-        const currentUsage = await quotaService.getDiskUsage(instanceDir);
-        const dataSize = Buffer.byteLength(data, 'utf8');
-        if (currentUsage + dataSize > quota) {
-          throw new Error($t("TXT_CODE_disk_quota_exceeded_write"));
-        }
-      }
-    }
-    
+
+    const dataSize = Buffer.byteLength(data, "utf8");
+    await this.checkDiskQuotaForWrite(absPath, dataSize);
+
     const buf = iconv.encode(data, this.fileCode || "utf-8");
-    
+
     return await fs.writeFile(absPath, buf);
   }
 
   async newFile(fileName: string) {
-    // if (!FileManager.checkFileName(fileName)) throw new Error(ERROR_MSG_01);
     if (!this.checkPath(fileName)) throw new Error(ERROR_MSG_01);
     const target = this.toAbsolutePath(fileName);
-    
-    // Check disk quota before creating file (if this file is part of an instance)
-    const quotaService = DiskQuotaService.getInstance();
-    // Extract instance UUID from path if it's an instance directory
-    // Path format is typically like /path/to/daemon/data/InstanceData/{instance_uuid}/...
-    const pathSegments = target.split('/');
-    const instanceDataIndex = pathSegments.indexOf('InstanceData');
-    if (instanceDataIndex !== -1 && pathSegments.length > instanceDataIndex + 1) {
-      const instanceUuid = pathSegments[instanceDataIndex + 1];
-      // Check if this instance has a quota set
-      const quota = quotaService["quotaMap"].get(instanceUuid);
-      if (quota && quota > 0) {
-        // Get current disk usage for the instance directory
-        const instanceDir = path.join('/', ...pathSegments.slice(0, instanceDataIndex + 2)); // Include InstanceData and UUID
-        const currentUsage = await quotaService.getDiskUsage(instanceDir);
-        // Assume minimal file size for new file
-        const minFileSize = 1; 
-        if (currentUsage + minFileSize > quota) {
-          throw new Error($t("TXT_CODE_disk_quota_exceeded_write"));
-        }
-      }
-    }
-    
+
+    // Check disk quota before creating file (minimal size)
+    await this.checkDiskQuotaForWrite(target, 1);
+
     await fs.createFile(target);
   }
 
@@ -481,36 +412,19 @@ export default class FileManager {
     if (!this.checkPath(target2) || !this.check(target1)) throw new Error(ERROR_MSG_01);
     const targetPath = this.toAbsolutePath(target1);
     target2 = this.toAbsolutePath(target2);
-    
-    // Check disk quota before copying (if the target is part of an instance)
-    const quotaService = DiskQuotaService.getInstance();
-    // Extract instance UUID from path if it's an instance directory
-    // Path format is typically like /path/to/daemon/data/InstanceData/{instance_uuid}/...
-    const pathSegments = target2.split('/');
-    const instanceDataIndex = pathSegments.indexOf('InstanceData');
-    if (instanceDataIndex !== -1 && pathSegments.length > instanceDataIndex + 1) {
-      const instanceUuid = pathSegments[instanceDataIndex + 1];
-      // Check if this instance has a quota set
-      const quota = quotaService["quotaMap"].get(instanceUuid);
-      if (quota && quota > 0) {
-        // Get current disk usage for the instance directory
-        const instanceDir = path.join('/', ...pathSegments.slice(0, instanceDataIndex + 2)); // Include InstanceData and UUID
-        const currentUsage = await quotaService.getDiskUsage(instanceDir);
-        // Get size of source file/directory
-        const sourceStats = await fs.stat(targetPath);
-        let sourceSize = 0;
-        if (sourceStats.isDirectory()) {
-          sourceSize = await this.getDirectorySize(targetPath);
-        } else {
-          sourceSize = sourceStats.size;
-        }
-        
-        if (currentUsage + sourceSize > quota) {
-          throw new Error($t("TXT_CODE_disk_quota_exceeded_write"));
-        }
-      }
+
+    // Get size of source file/directory
+    const sourceStats = await fs.stat(targetPath);
+    let sourceSize = 0;
+    if (sourceStats.isDirectory()) {
+      sourceSize = await this.getDirectorySize(targetPath);
+    } else {
+      sourceSize = sourceStats.size;
     }
-    
+
+    // Check disk quota before copying
+    await this.checkDiskQuotaForWrite(target2, sourceSize);
+
     return await fs.copy(targetPath, target2);
   }
 
@@ -536,47 +450,28 @@ export default class FileManager {
     if (!this.checkPath(destPath)) throw new Error(ERROR_MSG_01);
     const targetPath = this.toAbsolutePath(target);
     destPath = this.toAbsolutePath(destPath);
-    
-    // Check disk quota before moving (if the destination is part of an instance)
-    // This is only relevant if the move is within the same filesystem (which will create a new file)
-    const quotaService = DiskQuotaService.getInstance();
-    // Extract instance UUID from path if it's an instance directory
-    // Path format is typically like /path/to/daemon/data/InstanceData/{instance_uuid}/...
-    const pathSegments = destPath.split('/');
-    const instanceDataIndex = pathSegments.indexOf('InstanceData');
-    if (instanceDataIndex !== -1 && pathSegments.length > instanceDataIndex + 1) {
-      const instanceUuid = pathSegments[instanceDataIndex + 1];
-      // Check if this instance has a quota set
-      const quota = quotaService["quotaMap"].get(instanceUuid);
-      if (quota && quota > 0) {
-        // Get current disk usage for the instance directory
-        const instanceDir = path.join('/', ...pathSegments.slice(0, instanceDataIndex + 2)); // Include InstanceData and UUID
-        const currentUsage = await quotaService.getDiskUsage(instanceDir);
-        
-        try {
-          // Get size of source file/directory
-          const sourceStats = await fs.stat(targetPath);
-          let sourceSize = 0;
-          if (sourceStats.isDirectory()) {
-            sourceSize = await this.getDirectorySize(targetPath);
-          } else {
-            sourceSize = sourceStats.size;
-          }
-          
-          if (currentUsage + sourceSize > quota) {
-            throw new Error($t("TXT_CODE_disk_quota_exceeded_write"));
-          }
-        } catch (error) {
-          // If we can't stat the source, just proceed - error will be handled by fs.move
-          if (error instanceof Error) {
-            console.warn(`Could not get source size for quota check: ${error.message}`);
-          } else {
-            console.warn(`Could not get source size for quota check: ${String(error)}`);
-          }
-        }
+
+    try {
+      // Get size of source file/directory
+      const sourceStats = await fs.stat(targetPath);
+      let sourceSize = 0;
+      if (sourceStats.isDirectory()) {
+        sourceSize = await this.getDirectorySize(targetPath);
+      } else {
+        sourceSize = sourceStats.size;
+      }
+
+      // Check disk quota before moving
+      await this.checkDiskQuotaForWrite(destPath, sourceSize);
+    } catch (error) {
+      // If we can't stat the source, just proceed - error will be handled by fs.move
+      if (error instanceof Error && !error.message.includes("TXT_CODE_disk_quota_exceeded_write")) {
+        console.warn(`Could not get source size for quota check: ${error.message}`);
+      } else {
+        throw error;
       }
     }
-    
+
     await fs.move(targetPath, destPath);
   }
 
@@ -613,31 +508,13 @@ export default class FileManager {
     if (totalSize > MAX_TOTAL_FIELS_SIZE)
       throw new Error($t("TXT_CODE_system_file.unzipLimit", { max: MAX_ZIP_GB }));
 
-    // Check disk quota before creating zip file (if the destination is part of an instance)
-    const quotaService = DiskQuotaService.getInstance();
-    // Extract instance UUID from path if it's an instance directory
-    // Path format is typically like /path/to/daemon/data/InstanceData/{instance_uuid}/...
-    const pathSegments = sourceZipPath.split('/');
-    const instanceDataIndex = pathSegments.indexOf('InstanceData');
-    if (instanceDataIndex !== -1 && pathSegments.length > instanceDataIndex + 1) {
-      const instanceUuid = pathSegments[instanceDataIndex + 1];
-      // Check if this instance has a quota set
-      const quota = quotaService["quotaMap"].get(instanceUuid);
-      if (quota != null && quota > 0) {
-        // Get current disk usage for the instance directory
-        const instanceDir = path.join('/', ...pathSegments.slice(0, instanceDataIndex + 2)); // Include InstanceData and UUID
-        const currentUsage = await quotaService.getDiskUsage(instanceDir);
-        // Estimate that the zip file might be a significant size
-        const estimatedZipSize = totalSize * 0.5; // Estimate zip compression ratio
+    // Estimate that the zip file might be a significant size
+    const estimatedZipSize = totalSize * 0.5; // Estimate zip compression ratio
 
-        if (currentUsage + estimatedZipSize > quota) {
-          throw new Error($t("TXT_CODE_disk_quota_exceeded_write"));
-        }
-      }
-    }
+    // Check disk quota before creating zip file
+    await this.checkDiskQuotaForWrite(sourceZipPath, estimatedZipSize);
 
-    // 传入 topPath 作为基础目录以保持文件夹结构
-    return await compress(sourceZipPath, filesPath, code, this.topPath);
+    return await compress(sourceZipPath, filesPath, code);
   }
 
   async edit(target: string, data?: string) {
@@ -674,25 +551,25 @@ export default class FileManager {
     }
     return true;
   }
-  
+
   /**
    * Get the total size of a directory recursively
    */
   private async getDirectorySize(dirPath: string): Promise<number> {
     let totalSize = 0;
     const items = await fs.readdir(dirPath);
-    
+
     for (const item of items) {
       const itemPath = path.join(dirPath, item);
       const stats = await fs.stat(itemPath);
-      
+
       if (stats.isDirectory()) {
         totalSize += await this.getDirectorySize(itemPath);
       } else {
         totalSize += stats.size;
       }
     }
-    
+
     return totalSize;
   }
 }

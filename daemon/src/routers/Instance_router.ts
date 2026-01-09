@@ -2,6 +2,7 @@ import fs from "fs-extra";
 import path from "path";
 import Instance from "../entity/instance/instance";
 import { $t } from "../i18n";
+import { DiskQuotaService } from "../service/disk_quota_service";
 import logger from "../service/log";
 import * as protocol from "../service/protocol";
 import { routerApp } from "../service/router";
@@ -12,8 +13,11 @@ import ProcessInfoCommand from "../entity/commands/process_info";
 import { ProcessConfig } from "../entity/instance/process_config";
 import { TaskCenter } from "../service/async_task_service";
 import { createQuickInstallTask, QuickInstallTask } from "../service/async_task_service/quick_install";
+import downloadManager from "../service/download_manager";
 import { IInstanceDetail, IJson } from "../service/interfaces";
+import { modService } from "../service/mod_service";
 import FileManager from "../service/system_file";
+import uploadManager from "../service/upload_manager";
 
 // Some instances operate router authentication middleware
 routerApp.use((event, ctx, data, next) => {
@@ -78,16 +82,24 @@ routerApp.on("instance/select", async (ctx, data) => {
   // paging function
   const pageResult = queryWrapper.page<Instance>(result, page, pageSize);
   // filter unwanted data
-  pageResult.data.forEach((instance) => {
-    overview.push({
+  const quotaService = DiskQuotaService.getInstance();
+  for (const instance of pageResult.data) {
+    const detail: IInstanceDetail = {
       instanceUuid: instance.instanceUuid,
       started: instance.startCount,
       autoRestarted: instance.autoRestartCount,
       status: instance.status(),
       config: instance.config,
       info: instance.info
-    });
-  });
+    };
+    // Try to get disk quota information
+    try {
+      detail.diskQuota = await quotaService.getQuotaInfo(instance);
+    } catch (err: any) {
+      // Ignore disk quota errors, they're non-critical
+    }
+    overview.push(detail);
+  }
 
   protocol.response(ctx, {
     page: pageResult.page,
@@ -99,26 +111,36 @@ routerApp.on("instance/select", async (ctx, data) => {
 });
 
 // Get an overview of this daemon instance
-routerApp.on("instance/overview", (ctx) => {
+routerApp.on("instance/overview", async (ctx) => {
   const overview: IInstanceDetail[] = [];
-  InstanceSubsystem.getInstances().forEach((instance) => {
-    overview.push({
+  const quotaService = DiskQuotaService.getInstance();
+  const instances = InstanceSubsystem.getInstances();
+  for (const instance of instances) {
+    const detail: IInstanceDetail = {
       instanceUuid: instance.instanceUuid,
       started: instance.startCount,
       autoRestarted: instance.autoRestartCount,
       status: instance.status(),
       config: instance.config,
       info: instance.info
-    });
-  });
+    };
+    // Try to get disk quota information
+    try {
+      detail.diskQuota = await quotaService.getQuotaInfo(instance);
+    } catch (err: any) {
+      // Ignore disk quota errors, they're non-critical
+    }
+    overview.push(detail);
+  }
 
   protocol.msg(ctx, "instance/overview", overview);
 });
 
 // Get an overview of some instances of this daemon
-routerApp.on("instance/section", (ctx, data) => {
+routerApp.on("instance/section", async (ctx, data) => {
   const instanceUuids = data.instanceUuids as string[];
   const overview: IInstanceDetail[] = [];
+  const quotaService = DiskQuotaService.getInstance();
   InstanceSubsystem.getInstances().forEach((instance) => {
     instanceUuids.forEach((targetUuid) => {
       if (targetUuid === instance.instanceUuid) {
@@ -133,6 +155,18 @@ routerApp.on("instance/section", (ctx, data) => {
       }
     });
   });
+  // Enrich with disk quota information
+  for (let i = 0; i < overview.length; i++) {
+    const instanceUuid = overview[i].instanceUuid;
+    const instance = InstanceSubsystem.getInstance(instanceUuid);
+    if (instance) {
+      try {
+        overview[i].diskQuota = await quotaService.getQuotaInfo(instance);
+      } catch (err: any) {
+        // Ignore disk quota errors, they're non-critical
+      }
+    }
+  }
   protocol.msg(ctx, "instance/section", overview);
 });
 
@@ -148,6 +182,12 @@ routerApp.on("instance/detail", async (ctx, data) => {
       // Parts that may be wrong due to file permissions, avoid affecting the acquisition of the entire configuration
       processInfo = await instance.forceExec(new ProcessInfoCommand());
     } catch (err: any) { }
+    let diskQuota = null;
+    try {
+      // Get disk quota information
+      const quotaService = DiskQuotaService.getInstance();
+      diskQuota = await quotaService.getQuotaInfo(instance);
+    } catch (err: any) { }
     protocol.msg(ctx, "instance/detail", {
       instanceUuid: instance.instanceUuid,
       started: instance.startCount,
@@ -156,7 +196,8 @@ routerApp.on("instance/detail", async (ctx, data) => {
       config: instance.config,
       info: instance.info,
       space,
-      processInfo
+      processInfo,
+      diskQuota
     });
   } catch (err: any) {
     protocol.error(ctx, "instance/detail", { err: err.message });
@@ -551,6 +592,126 @@ routerApp.on("instance/outputlog", async (ctx, data) => {
     protocol.responseError(ctx, new Error($t("TXT_CODE_Instance_router.terminalLogNotExist")), {
       disablePrint: true
     });
+  } catch (err: any) {
+    protocol.responseError(ctx, err);
+  }
+});
+
+routerApp.on("instance/mods/list", async (ctx, data) => {
+  const instanceUuid = data.instanceUuid;
+  try {
+    const mods = await modService.listMods(instanceUuid);
+    const downloadTasks = [];
+    if (downloadManager.task) {
+      downloadTasks.push({
+        path: downloadManager.task.path,
+        total: downloadManager.task.total,
+        current: downloadManager.task.current,
+        status: downloadManager.task.status,
+        error: downloadManager.task.error,
+        type: "download"
+      });
+    }
+
+    const uploadTasks = [];
+    for (const [id, writer] of uploadManager.getUploads()) {
+      if (writer.cwd === instanceUuid || writer.path.includes(instanceUuid)) {
+        uploadTasks.push({
+          id,
+          path: writer.path,
+          total: writer.size,
+          current: writer.received.reduce((acc: number, r: { start: number; end: number }) => acc + (r.end - r.start), 0),
+          status: 0,
+          type: "upload"
+        });
+      }
+    }
+
+    protocol.response(ctx, {
+      ...mods,
+      downloadTasks: [...downloadTasks, ...uploadTasks],
+      downloadFileFromURLTask: downloadManager.downloadingCount
+    });
+  } catch (err: any) {
+    protocol.responseError(ctx, err);
+  }
+});
+
+routerApp.on("instance/mods/toggle", async (ctx, data) => {
+  const { instanceUuid, fileName, deferred, extraInfo } = data;
+  try {
+    if (deferred) {
+      modService.addDeferredTask(instanceUuid, { type: "toggle", fileName, extraInfo });
+      protocol.response(ctx, true);
+    } else {
+      await modService.toggleMod(instanceUuid, fileName);
+      protocol.response(ctx, true);
+    }
+  } catch (err: any) {
+    protocol.responseError(ctx, err);
+  }
+});
+
+routerApp.on("instance/mods/delete", async (ctx, data) => {
+  const { instanceUuid, fileName, deferred, extraInfo } = data;
+  try {
+    if (deferred) {
+      modService.addDeferredTask(instanceUuid, { type: "delete", fileName, extraInfo });
+      protocol.response(ctx, true);
+    } else {
+      await modService.deleteMod(instanceUuid, fileName);
+      protocol.response(ctx, true);
+    }
+  } catch (err: any) {
+    protocol.responseError(ctx, err);
+  }
+});
+
+routerApp.on("instance/mods/install", async (ctx, data) => {
+  const { instanceUuid, url, fileName, type, fallbackUrl, deferred, extraInfo } = data;
+  try {
+    await modService.installMod(instanceUuid, url, fileName, type, { fallbackUrl, deferred, extraInfo });
+    protocol.response(ctx, true);
+  } catch (err: any) {
+    protocol.responseError(ctx, err);
+  }
+});
+
+routerApp.on("instance/mods/config_files", async (ctx, data) => {
+  const { instanceUuid, modId, type, fileName } = data;
+  try {
+    const files = await modService.getModConfig(instanceUuid, modId, type, fileName);
+    protocol.response(ctx, files);
+  } catch (err: any) {
+    protocol.responseError(ctx, err);
+  }
+});
+
+routerApp.on("instance/mods/deferred/list", async (ctx, data) => {
+  const { instanceUuid } = data;
+  try {
+    const tasks = modService.getDeferredTasks(instanceUuid);
+    protocol.response(ctx, tasks);
+  } catch (err: any) {
+    protocol.responseError(ctx, err);
+  }
+});
+
+routerApp.on("instance/mods/deferred/auto_execute", async (ctx, data) => {
+  const { instanceUuid, enabled } = data;
+  try {
+    modService.setAutoExecute(instanceUuid, enabled);
+    protocol.response(ctx, true);
+  } catch (err: any) {
+    protocol.responseError(ctx, err);
+  }
+});
+
+routerApp.on("instance/mods/deferred/clear", async (ctx, data) => {
+  const { instanceUuid } = data;
+  try {
+    modService.clearDeferredTasks(instanceUuid);
+    protocol.response(ctx, true);
   } catch (err: any) {
     protocol.responseError(ctx, err);
   }

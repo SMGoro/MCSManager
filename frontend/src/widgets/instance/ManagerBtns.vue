@@ -9,6 +9,7 @@ import {
 } from "@/hooks/useInstance";
 import { useServerConfig } from "@/hooks/useServerConfig";
 import { t } from "@/lang/i18n";
+import { modListApi } from "@/services/apis/modManager";
 import { useAppStateStore } from "@/stores/useAppStateStore";
 import type { LayoutCard } from "@/types";
 import {
@@ -33,6 +34,7 @@ import BackupManagement from "./dialogs/BackupManagement.vue";
 import EventConfig from "./dialogs/EventConfig.vue";
 import InstanceDetail from "./dialogs/InstanceDetail.vue";
 import InstanceFundamentalDetail from "./dialogs/InstanceFundamentalDetail.vue";
+import JavaManager from "./dialogs/JavaManager.vue";
 import McPingSettings from "./dialogs/McPingSettings.vue";
 import PingConfig from "./dialogs/PingConfig.vue";
 import RconSettings from "./dialogs/RconSettings.vue";
@@ -41,6 +43,7 @@ import TermConfig from "./dialogs/TermConfig.vue";
 const terminalConfigDialog = ref<InstanceType<typeof TermConfig>>();
 const rconSettingsDialog = ref<InstanceType<typeof RconSettings>>();
 const mcSettingsDialog = ref<InstanceType<typeof McPingSettings>>();
+const javaManagerDialog = ref<InstanceType<typeof JavaManager>>();
 const eventConfigDialog = ref<InstanceType<typeof EventConfig>>();
 const pingConfigDialog = ref<InstanceType<typeof PingConfig>>();
 const instanceDetailsDialog = ref<InstanceType<typeof InstanceDetail>>();
@@ -67,6 +70,35 @@ const { instanceInfo, execute, isGlobalTerminal } = useInstanceInfo({
 });
 
 const { serverConfigFiles, refresh: refreshServerConfig } = useServerConfig();
+
+const folders = ref<string[]>([]);
+const foldersLoaded = ref(false);
+
+const loadFolders = async () => {
+  if (!instanceId || !daemonId) return;
+  try {
+    const { execute } = modListApi();
+    const res = await execute({
+      params: {
+        uuid: instanceId,
+        daemonId: daemonId
+      }
+    });
+    folders.value = res.value?.folders || [];
+  } catch (err) {
+    console.error("Failed to load folders:", err);
+  } finally {
+    foldersLoaded.value = true;
+  }
+};
+
+watch(
+  () => [instanceId, daemonId],
+  () => {
+    loadFolders();
+  },
+  { immediate: true }
+);
 
 const toPage = (params: RouteLocationPathRaw) => {
   if (!params.query) params.query = {};
@@ -127,10 +159,36 @@ const btns = computed(() => {
       condition: () => !isGlobalTerminal.value
     },
     {
+      title: t("TXT_CODE_MOD_MANAGER"),
+      icon: AppstoreAddOutlined,
+      click: () => {
+        toPage({ path: "/instances/terminal/mods" });
+      },
+      condition: () => {
+        const type = instanceInfo.value?.config.type || "";
+        // Narrow it down to Minecraft server types only (Java or Bedrock)
+        const isMC = type.startsWith("minecraft/java") || type.startsWith("minecraft/bedrock");
+        if (!isMC) return false;
+
+        const hasPermission = state.settings.canFileManager || isAdmin.value;
+        if (!hasPermission) return false;
+        if (!foldersLoaded.value) return false;
+        return folders.value && folders.value.length > 0;
+      }
+    },
+    {
       title: t("TXT_CODE_40241d8e"),
       icon: UsergroupDeleteOutlined,
       click: () => {
         mcSettingsDialog.value?.openDialog();
+      },
+      condition: () => instanceInfo.value?.config.type.includes(TYPE_MINECRAFT_JAVA) ?? false
+    },
+    {
+      title: t("TXT_CODE_3fee13ed"),
+      icon: BuildOutlined,
+      click: () => {
+        javaManagerDialog.value?.openDialog();
       },
       condition: () => instanceInfo.value?.config.type.includes(TYPE_MINECRAFT_JAVA) ?? false
     },
@@ -289,6 +347,12 @@ watch(instanceInfo, (cfg, oldCfg) => {
     :instance-info="instanceInfo"
     :instance-id="instanceId"
     :daemon-id="daemonId"
+  />
+  <JavaManager
+    ref="javaManagerDialog"
+    :instance-info="instanceInfo"
+    :daemon-id="daemonId"
+    :instance-id="instanceId"
     @update="refreshInstanceInfo"
   />
 </template>
@@ -313,7 +377,6 @@ watch(instanceInfo, (cfg, oldCfg) => {
   }
 }
 
-/* 当组件垂直排列时的自适应高度 */
 @media (max-width: 1000px) {
   .function-btns-container {
     position: relative;
