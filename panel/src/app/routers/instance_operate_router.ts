@@ -618,13 +618,9 @@ router.get(
       const daemonId = String(ctx.query.daemonId);
       const instanceUuid = String(ctx.query.uuid);
       const remoteService = RemoteServiceSubsystem.getInstance(daemonId);
-      const result = await new RemoteRequest(remoteService).request(
-        "instance/backup/list",
-        {
-          instanceUuid
-        },
-        1000 * 60
-      );
+      const result = await new RemoteRequest(remoteService).request("instance/backup/list", {
+        instanceUuid
+      });
       ctx.body = result;
     } catch (err) {
       ctx.body = err;
@@ -705,17 +701,17 @@ router.get(
       const fileName = String(ctx.query.fileName);
       const remoteService = RemoteServiceSubsystem.getInstance(daemonId);
       if (!remoteService) throw new Error($t("TXT_CODE_dd559000") + ` Daemon ID: ${daemonId}`);
-      
+
       // 从daemon获取下载密钥
       const result = await new RemoteRequest(remoteService).request("instance/backup/download", {
         instanceUuid,
         fileName
       });
-      
+
       // 像文件管理下载一样，返回完整的下载信息
       const addr = remoteService.config.fullAddr;
       const remoteMappings = remoteService.config.getConvertedRemoteMappings();
-      
+
       ctx.body = {
         password: result.password,
         addr,
