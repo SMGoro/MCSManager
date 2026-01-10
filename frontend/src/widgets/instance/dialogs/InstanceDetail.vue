@@ -454,8 +454,8 @@ const handleEditDockerConfig = async (type: "port" | "volume" | "env" | "label")
     const envs = options.value.config.docker.env?.map((v) => {
       const tmp = v.split("=");
       return {
-        label: tmp[0] || "",
-        value: tmp[1] || ""
+        label: tmp.shift() || "",
+        value: tmp.join("=") || ""
       };
     });
     const result = await useDockerEnvEditDialog(envs);
@@ -467,8 +467,8 @@ const handleEditDockerConfig = async (type: "port" | "volume" | "env" | "label")
     const labels = options.value.config.docker.labels?.map((v) => {
       const tmp = v.split("=");
       return {
-        label: tmp[0] || "",
-        value: tmp[1] || ""
+        label: tmp.shift() || "",
+        value: tmp.join("=") || ""
       };
     });
     const result = await useDockerLabelEditDialog(labels);
