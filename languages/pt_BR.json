@@ -3276,6 +3276,6 @@
   "TXT_CODE_system_instance_control.illegalName": "Nome de tarefa ilegal. Apenas underscores, números, letras e alguns caracteres de idioma local são suportados.",
   "TXT_CODE_ui.help": "[Terminal] O daemon tem funcionalidade básica de interação. Por favor, insira 'help' para mais informações.",
   "TXT_CODE_version.versionDetectErr": "Falha na verificação da versão",
-  "TXT_CODE_OUTPUT_BUFFER_SIZE": "Tamanho do Buffer de Saída",
-  "TXT_CODE_OUTPUT_BUFFER_SIZE_INFO": "Controla o número máximo de blocos de saída armazenados por ciclo de atualização. Aumentar este valor pode evitar o aviso 'O conteúdo da saída instantânea é muito longo' ao iniciar servidores. Padrão: 256, Intervalo: 16-4096. As alterações entram em vigor na próxima inicialização da instância."
+  "TXT_CODE_instanceConf.outputBufferSize": "Tamanho do Buffer de Saída",
+  "TXT_CODE_instanceConf.outputBufferSizeInfo": "Controla o número máximo de blocos de saída armazenados por ciclo de atualização. Aumentar este valor pode evitar o aviso 'O conteúdo da saída instantânea é muito longo' ao iniciar servidores. Padrão: 256, Intervalo: 16-4096. As alterações entram em vigor na próxima inicialização da instância."
 }

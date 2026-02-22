@@ -3276,6 +3276,6 @@
   "TXT_CODE_system_instance_control.illegalName": "Nombre de proyecto incorrecto, solo admite guiones bajos, números, letras y algunos idiomas locales",
   "TXT_CODE_ui.help": "[Consola] El demonio tiene funciones interactivas básicas, ingrese \"ayuda\" para ver más información",
   "TXT_CODE_version.versionDetectErr": "Error en la verificación de versión",
-  "TXT_CODE_OUTPUT_BUFFER_SIZE": "Tamaño del búfer de salida",
-  "TXT_CODE_OUTPUT_BUFFER_SIZE_INFO": "Controla el número máximo de bloques de salida almacenados por ciclo de actualización. Aumentar este valor puede evitar la advertencia 'El contenido de la salida instantánea es demasiado largo' al iniciar servidores. Predeterminado: 256, Rango: 16-4096. Los cambios surten efecto en el próximo inicio de la instancia."
+  "TXT_CODE_instanceConf.outputBufferSize": "Tamaño del búfer de salida",
+  "TXT_CODE_instanceConf.outputBufferSizeInfo": "Controla el número máximo de bloques de salida almacenados por ciclo de actualización. Aumentar este valor puede evitar la advertencia 'El contenido de la salida instantánea es demasiado largo' al iniciar servidores. Predeterminado: 256, Rango: 16-4096. Los cambios surten efecto en el próximo inicio de la instancia."
 }

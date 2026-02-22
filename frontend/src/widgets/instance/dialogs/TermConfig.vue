@@ -93,11 +93,11 @@ defineExpose({
 
           <a-form-item>
             <a-typography-title :level="5">{{
-              t("TXT_CODE_OUTPUT_BUFFER_SIZE")
+              t("TXT_CODE_instanceConf.outputBufferSize")
             }}</a-typography-title>
             <a-typography-paragraph>
               <a-typography-text type="secondary">
-                {{ t("TXT_CODE_OUTPUT_BUFFER_SIZE_INFO") }}
+                {{ t("TXT_CODE_instanceConf.outputBufferSizeInfo") }}
               </a-typography-text>
             </a-typography-paragraph>
             <a-input-number

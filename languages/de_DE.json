@@ -2930,6 +2930,6 @@
   "TXT_CODE_system_instance_control.illegalName": "Falscher Projektname, unterstützt nur Unterstriche, Zahlen, Buchstaben und einige lokale Sprachen",
   "TXT_CODE_ui.help": "[Konsole] Der Daemon verfügt über grundlegende interaktive Funktionen. Bitte geben Sie „Hilfe“ ein, um weitere Informationen anzuzeigen",
   "TXT_CODE_version.versionDetectErr": "Die Versionsprüfung ist fehlgeschlagen",
-  "TXT_CODE_OUTPUT_BUFFER_SIZE": "Ausgabepuffergröße",
-  "TXT_CODE_OUTPUT_BUFFER_SIZE_INFO": "Steuert die maximale Anzahl von Ausgabeblöcken, die pro Aktualisierungszyklus gepuffert werden. Das Erhöhen dieses Werts kann die Warnung 'Der Inhalt der Sofortausgabe ist zu lang' beim Starten von Servern verhindern. Standard: 256, Bereich: 16-4096. Änderungen werden beim nächsten Instanzstart wirksam."
+  "TXT_CODE_instanceConf.outputBufferSize": "Ausgabepuffergröße",
+  "TXT_CODE_instanceConf.outputBufferSizeInfo": "Steuert die maximale Anzahl von Ausgabeblöcken, die pro Aktualisierungszyklus gepuffert werden. Das Erhöhen dieses Werts kann die Warnung 'Der Inhalt der Sofortausgabe ist zu lang' beim Starten von Servern verhindern. Standard: 256, Bereich: 16-4096. Änderungen werden beim nächsten Instanzstart wirksam."
 }
