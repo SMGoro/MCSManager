@@ -3275,5 +3275,7 @@
   "TXT_CODE_system_instance_control.existRepeatTask": "已存在重复的任务",
   "TXT_CODE_system_instance_control.illegalName": "非法的计划名，仅支持下划线，数字，字母和部分本地语言",
   "TXT_CODE_ui.help": "[终端] 守护进程拥有基本的交互功能，请输入\"help\"查看更多信息",
-  "TXT_CODE_version.versionDetectErr": "版本检查失败"
+  "TXT_CODE_version.versionDetectErr": "版本检查失败",
+  "TXT_CODE_OUTPUT_BUFFER_SIZE": "输出缓冲区大小",
+  "TXT_CODE_OUTPUT_BUFFER_SIZE_INFO": "控制每个刷新周期内缓冲的最大输出块数量。增大此值可以防止启动服务端时出现「此刻瞬时输出内容过长，已拒绝显示」的警告。默认值：256，范围：16-4096。更改将在下次启动实例时生效。"
 }

@@ -35,6 +35,7 @@ declare global {
       pty: boolean;
       ptyWindowCol: number;
       ptyWindowRow: number;
+      outputBufferSize: number;
     };
     eventTask: {
       autoStart: boolean;

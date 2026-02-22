@@ -3275,5 +3275,7 @@
   "TXT_CODE_system_instance_control.existRepeatTask": "มีงานที่ซ้ำกันอยู่แล้ว",
   "TXT_CODE_system_instance_control.illegalName": "ชื่องานไม่ถูกต้อง รองรับเฉพาะขีดล่าง ตัวเลข ตัวอักษร และอักขระภาษาท้องถิ่นบางตัวเท่านั้น",
   "TXT_CODE_ui.help": "[เทอร์มินัล] Daemon มีฟังก์ชันการโต้ตอบพื้นฐาน กรุณาป้อน 'help' สำหรับข้อมูลเพิ่มเติม",
-  "TXT_CODE_version.versionDetectErr": "การตรวจสอบเวอร์ชันล้มเหลว"
+  "TXT_CODE_version.versionDetectErr": "การตรวจสอบเวอร์ชันล้มเหลว",
+  "TXT_CODE_OUTPUT_BUFFER_SIZE": "Output Buffer Size",
+  "TXT_CODE_OUTPUT_BUFFER_SIZE_INFO": "Controls the maximum number of output chunks buffered per refresh cycle. Increasing this value can prevent the 'instantaneous output content is too long' warning when starting servers with large amounts of initial output. Default: 256, Range: 16-4096. Changes take effect on next instance start."
 }

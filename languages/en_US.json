@@ -3275,5 +3275,7 @@
   "TXT_CODE_system_instance_control.existRepeatTask": "A duplicate task already exists.",
   "TXT_CODE_system_instance_control.illegalName": "Illegal task name. Only underscores, numbers, letters, and some local language characters are supported. It's safest to stick to alphanumeric characters.",
   "TXT_CODE_ui.help": "[Terminal] The daemon has basic interactive functionality. Please enter 'help' for more information.",
-  "TXT_CODE_version.versionDetectErr": "Version Check Failed"
+  "TXT_CODE_version.versionDetectErr": "Version Check Failed",
+  "TXT_CODE_OUTPUT_BUFFER_SIZE": "Output Buffer Size",
+  "TXT_CODE_OUTPUT_BUFFER_SIZE_INFO": "Controls the maximum number of output chunks buffered per refresh cycle. Increasing this value can prevent the 'instantaneous output content is too long' warning when starting servers with large amounts of initial output. Default: 256, Range: 16-4096. Changes take effect on next instance start."
 }

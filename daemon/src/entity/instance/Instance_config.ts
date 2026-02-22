@@ -41,7 +41,8 @@ export default class InstanceConfig implements IGlobalInstanceConfig {
     haveColor: false,
     pty: true,
     ptyWindowCol: 164,
-    ptyWindowRow: 40
+    ptyWindowRow: 40,
+    outputBufferSize: 256
   };
 
   // Event task

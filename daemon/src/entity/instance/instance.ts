@@ -105,7 +105,7 @@ export default class Instance extends EventEmitter {
   public process?: IInstanceProcess;
 
   private outputLoopTask?: NodeJS.Timeout;
-  private outputBuffer = new CircularBuffer<string>(256);
+  private outputBuffer: CircularBuffer<string>;
 
   // When initializing an instance, the instance must be initialized through uuid and configuration class, otherwise the instance will be unavailable
   constructor(instanceUuid: string, config: InstanceConfig) {
@@ -121,6 +121,10 @@ export default class Instance extends EventEmitter {
     this.lock = false;
 
     this.config = config;
+
+    this.outputBuffer = new CircularBuffer<string>(
+      config.terminalOption.outputBufferSize || 256
+    );
 
     this.process = undefined;
     this.startCount = 0;
@@ -249,6 +253,21 @@ export default class Instance extends EventEmitter {
     }
     if (cfg.terminalOption) {
       configureEntityParams(this.config.terminalOption, cfg.terminalOption, "haveColor", Boolean);
+    }
+
+    if (cfg?.terminalOption?.outputBufferSize != null) {
+      const newSize = Number(cfg.terminalOption.outputBufferSize);
+      if (newSize > 0 && newSize !== this.config.terminalOption.outputBufferSize) {
+        configureEntityParams(
+          this.config.terminalOption,
+          cfg.terminalOption,
+          "outputBufferSize",
+          Number
+        );
+        if (this.isStoppedOrBusy()) {
+          this.outputBuffer = new CircularBuffer<string>(newSize);
+        }
+      }
     }
 
     if (cfg.startCommand && commandStringToArray(cfg.startCommand)[0] != "{mcsm_java}") {

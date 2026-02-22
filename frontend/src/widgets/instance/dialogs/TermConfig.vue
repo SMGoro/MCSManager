@@ -92,6 +92,23 @@ defineExpose({
           </a-form-item>
 
           <a-form-item>
+            <a-typography-title :level="5">{{
+              t("TXT_CODE_OUTPUT_BUFFER_SIZE")
+            }}</a-typography-title>
+            <a-typography-paragraph>
+              <a-typography-text type="secondary">
+                {{ t("TXT_CODE_OUTPUT_BUFFER_SIZE_INFO") }}
+              </a-typography-text>
+            </a-typography-paragraph>
+            <a-input-number
+              v-model:value="options.config.terminalOption.outputBufferSize"
+              :min="16"
+              :max="4096"
+              :style="'width: ' + (isPhone ? '100%' : '220px')"
+            />
+          </a-form-item>
+
+          <a-form-item>
             <a-typography-title :level="5">{{ t("TXT_CODE_b91a94f9") }}</a-typography-title>
             <a-typography-paragraph>
               <a-typography-text type="secondary">

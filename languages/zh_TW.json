@@ -3275,5 +3275,7 @@
   "TXT_CODE_system_instance_control.existRepeatTask": "已存在重複的任務",
   "TXT_CODE_system_instance_control.illegalName": "錯誤的計畫名，只支援底線，數字，字母和部分本地語言",
   "TXT_CODE_ui.help": "[終端] 守護程式擁有基本的互動功能，請輸入\"help\"查看更多資訊",
-  "TXT_CODE_version.versionDetectErr": "版本檢查失敗"
+  "TXT_CODE_version.versionDetectErr": "版本檢查失敗",
+  "TXT_CODE_OUTPUT_BUFFER_SIZE": "輸出緩衝區大小",
+  "TXT_CODE_OUTPUT_BUFFER_SIZE_INFO": "控制每個刷新週期內緩衝的最大輸出塊數量。增大此值可以防止啟動伺服器時出現「瞬間輸出內容太長，已拒絕顯示」的警告。預設值：256，範圍：16-4096。更改將在下次啟動實例時生效。"
 }
