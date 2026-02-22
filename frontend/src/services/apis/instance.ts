@@ -141,7 +141,6 @@ export const updateInstanceConfig = useDefineApi<
       terminalOption?: {
         haveColor: boolean;
         pty: boolean;
-        outputBufferSize?: number;
       };
       crlf?: number;
       ie?: string;

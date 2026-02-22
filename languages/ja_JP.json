@@ -3276,6 +3276,6 @@
   "TXT_CODE_system_instance_control.illegalName": "プロジェクト名が間違っています。アンダースコア、数字、文字、および一部の現地言語のみをサポートしています",
   "TXT_CODE_ui.help": "[コンソール] デーモンには基本的な対話機能があります。詳細を表示するには「ヘルプ」と入力してください。",
   "TXT_CODE_version.versionDetectErr": "バージョンチェックに失敗しました",
-  "TXT_CODE_instanceConf.outputBufferSize": "出力バッファサイズ",
-  "TXT_CODE_instanceConf.outputBufferSizeInfo": "リフレッシュサイクルごとにバッファリングされる出力チャンクの最大数を制御します。この値を増やすと、サーバー起動時の「インスタント出力コンテンツが長すぎるため、表示が拒否されました」という警告を防ぐことができます。デフォルト: 256、範囲: 16-4096。変更は次回インスタンス起動時に有効になります。"
+  "TXT_CODE_daemon_outputBufferSize": "ログバッファサイズ",
+  "TXT_CODE_daemon_outputBufferSizeInfo": "バッファを増やすことでターミナル出力の内容の完全性をより確保できますが、メモリとパフォーマンスへの負荷が大きくなり、メモリリークが発生する可能性もあります。"
 }

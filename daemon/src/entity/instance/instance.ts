@@ -123,7 +123,7 @@ export default class Instance extends EventEmitter {
     this.config = config;
 
     this.outputBuffer = new CircularBuffer<string>(
-      config.terminalOption.outputBufferSize || 256
+      globalConfiguration.config.outputBufferSize || 256
     );
 
     this.process = undefined;
@@ -253,21 +253,6 @@ export default class Instance extends EventEmitter {
     }
     if (cfg.terminalOption) {
       configureEntityParams(this.config.terminalOption, cfg.terminalOption, "haveColor", Boolean);
-    }
-
-    if (cfg?.terminalOption?.outputBufferSize != null) {
-      const newSize = Number(cfg.terminalOption.outputBufferSize);
-      if (newSize > 0 && newSize !== this.config.terminalOption.outputBufferSize) {
-        configureEntityParams(
-          this.config.terminalOption,
-          cfg.terminalOption,
-          "outputBufferSize",
-          Number
-        );
-        if (this.isStoppedOrBusy()) {
-          this.outputBuffer = new CircularBuffer<string>(newSize);
-        }
-      }
     }
 
     if (cfg.startCommand && commandStringToArray(cfg.startCommand)[0] != "{mcsm_java}") {
@@ -591,6 +576,9 @@ export default class Instance extends EventEmitter {
   }
 
   private startOutputLoop() {
+    this.outputBuffer = new CircularBuffer<string>(
+      globalConfiguration.config.outputBufferSize || 256
+    );
     this.outputLoopTask = setInterval(() => {
       this.flushOutputBuffer();
     }, 50);

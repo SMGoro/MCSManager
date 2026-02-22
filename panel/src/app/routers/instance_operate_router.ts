@@ -442,8 +442,7 @@ router.put(
         haveColor: toBoolean(config.terminalOption?.haveColor),
         pty: toBoolean(config.terminalOption?.pty),
         ptyWindowCol: toNumber(config.terminalOption?.ptyWindowCol),
-        ptyWindowRow: toNumber(config.terminalOption?.ptyWindowRow),
-        outputBufferSize: toNumber(config.terminalOption?.outputBufferSize)
+        ptyWindowRow: toNumber(config.terminalOption?.ptyWindowRow)
       };
 
       // extra service
