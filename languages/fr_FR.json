@@ -3275,5 +3275,7 @@
   "TXT_CODE_system_instance_control.existRepeatTask": "Des tâches en double existent déjà",
   "TXT_CODE_system_instance_control.illegalName": "Nom de projet incorrect, ne prend en charge que les traits de soulignement, les chiffres, les lettres et certaines langues locales",
   "TXT_CODE_ui.help": "[Console] Le démon a des fonctions interactives de base, veuillez saisir \"aide\" pour afficher plus d'informations",
-  "TXT_CODE_version.versionDetectErr": "La vérification de la version a échoué"
+  "TXT_CODE_version.versionDetectErr": "La vérification de la version a échoué",
+  "TXT_CODE_daemon_outputBufferSize": "Taille du tampon de journalisation",
+  "TXT_CODE_daemon_outputBufferSizeInfo": "Augmenter le tampon permet de mieux garantir l'intégrité du contenu de sortie du terminal, mais augmente la pression sur la mémoire et les performances, pouvant même provoquer des fuites de mémoire."
 }

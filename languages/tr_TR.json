@@ -3275,5 +3275,7 @@
   "TXT_CODE_system_instance_control.existRepeatTask": "Yinelenen bir görev zaten var.",
   "TXT_CODE_system_instance_control.illegalName": "Yasadışı görev adı. Yalnızca alt çizgiler, sayılar, harfler ve bazı yerel dil karakterleri desteklenir.",
   "TXT_CODE_ui.help": "[Terminal] Daemon temel etkileşimli işlevselliğe sahiptir. Daha fazla bilgi için lütfen 'help' girin.",
-  "TXT_CODE_version.versionDetectErr": "Sürüm Kontrolü Başarısız"
+  "TXT_CODE_version.versionDetectErr": "Sürüm Kontrolü Başarısız",
+  "TXT_CODE_daemon_outputBufferSize": "Günlük Arabellek Boyutu",
+  "TXT_CODE_daemon_outputBufferSizeInfo": "Arabelleği büyütmek terminal çıktı içeriğinin bütünlüğünü daha iyi sağlayabilir, ancak bellek ve performans üzerindeki baskıyı artırır, hatta bellek sızıntısına neden olabilir."
 }
