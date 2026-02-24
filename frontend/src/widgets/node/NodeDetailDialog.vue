@@ -276,10 +276,7 @@ defineExpose({ openDialog });
               </a-form-item>
             </a-col>
             <a-col :span="12">
-              <a-form-item
-                :label="t('TXT_CODE_daemon_outputBufferSize')"
-                name="outputBufferSize"
-              >
+              <a-form-item :label="t('TXT_CODE_daemon_outputBufferSize')" name="outputBufferSize">
                 <a-typography-paragraph>
                   <a-typography-text type="secondary">
                     {{ t("TXT_CODE_daemon_outputBufferSizeInfo") }}
