@@ -3277,5 +3277,11 @@
   "TXT_CODE_ui.help": "[终端] 守护进程拥有基本的交互功能，请输入\"help\"查看更多信息",
   "TXT_CODE_version.versionDetectErr": "版本检查失败",
   "TXT_CODE_daemon_outputBufferSize": "日志缓冲区大小",
-  "TXT_CODE_daemon_outputBufferSizeInfo": "增大缓冲区可更好的保证终端输出的内容完整性，但内存和性能的压力将会更大，甚至内存泄漏。"
+  "TXT_CODE_daemon_outputBufferSizeInfo": "增大缓冲区可更好的保证终端输出的内容完整性，但内存和性能的压力将会更大，甚至内存泄漏。",
+  "TXT_CODE_1bfd647d": "导入整合包/压缩包/开服包",
+  "TXT_CODE_b5be5a6a": "如果需要导入服务端游戏整合包，或者开服包，可以通过这里的方式。",
+  "TXT_CODE_963e00f": "使用 Docker 镜像开服",
+  "TXT_CODE_572ba7f0": "对于进阶用户，在 Linux 系统下，可以通过此处来基于镜像创建，支持任何镜像。",
+  "TXT_CODE_d284d8a9": "使用预设包快速创建",
+  "TXT_CODE_22814776": "如果是第一次创建游戏服务器，可以来这里选择我们的预设包哦～，选择后也支持后续再重新安装更改的！"
 }
