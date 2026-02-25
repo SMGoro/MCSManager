@@ -2716,7 +2716,7 @@
   "TXT_CODE_docker_pull_auth_failed": "镜像身份验证失败：{{imageName}}。\n请检查您的凭据。",
   "TXT_CODE_docker_pull_disk_space_error": "磁盘空间不足，无法提取映像：{{imageName}}。\n请释放磁盘空间。",
   "TXT_CODE_docker_pull_generic_error": "Docker 拉取失败：{{errorMsg}}",
-  "TXT_CODE_docker_pull_generic_error_fallback": "镜像下载错误，请确保镜像名称正确，或者通过节点管理终端使用docker pull手动拉取所需镜像，错误：\n\n{{错误消息}}",
+  "TXT_CODE_docker_pull_generic_error_fallback": "镜像下载错误，请确保镜像名称正确，或者通过节点管理终端使用 docker pull 手动拉取所需镜像，错误信息：\n\n{{errMsg}}",
   "TXT_CODE_docker_pull_generic_error_with_detail": "Docker 拉取失败：{{errorMsg}} ({{errorDetail}})",
   "TXT_CODE_docker_pull_image_exists": "镜像 {{imageName}} 已存在，正在跳过下载",
   "TXT_CODE_docker_pull_image_not_found": "未找到图像：{{imageName}}。\n请检查图像名称和标签。",
