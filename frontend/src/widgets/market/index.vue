@@ -7,14 +7,18 @@ import { t } from "@/lang/i18n";
 import { useAppStateStore } from "@/stores/useAppStateStore";
 import type { LayoutCard } from "@/types";
 import InstallOptionButton from "@/widgets/market/InstallOptionButton.vue";
+import { useMarketTour } from "@/widgets/market/useMarketTour";
 import CreateInstanceForm from "@/widgets/setupApp/CreateInstanceForm.vue";
 import McPreset from "@/widgets/setupApp/McPreset.vue";
 import {
   AppstoreAddOutlined,
   BlockOutlined,
+  DatabaseOutlined,
   FileZipOutlined,
   FolderOpenOutlined
 } from "@ant-design/icons-vue";
+import { Divider, Flex, Tour } from "ant-design-vue";
+import Link from "ant-design-vue/es/typography/Link";
 import { ref } from "vue";
 
 const props = defineProps<{
@@ -22,6 +26,9 @@ const props = defineProps<{
 }>();
 
 const { isAdmin } = useAppStateStore();
+
+const { step3Ref, openTour, tourCurrent, tourSteps, setStepRef, markTourDone } =
+  useMarketTour(isAdmin);
 
 const { getMetaOrRouteValue } = useLayoutCardTools(props.card);
 const daemonId = getMetaOrRouteValue("daemonId", false) ?? "";
@@ -89,6 +96,10 @@ const manualInstallOptions = [
     }
   }
 ];
+
+const openEditor = () => {
+  router.push("/market/editor");
+};
 </script>
 
 <template>
@@ -108,6 +119,7 @@ const manualInstallOptions = [
           <a-col
             v-for="(option, index) in manualInstallOptions"
             :key="index"
+            :ref="(el) => setStepRef(index, el)"
             :span="24"
             :md="12"
             :lg="8"
@@ -117,9 +129,40 @@ const manualInstallOptions = [
         </a-row>
       </div>
     </div>
-    <div><McPreset :card="card" /></div>
+    <div>
+      <div ref="step3Ref">
+        <a-typography-title :level="4" style="margin-bottom: 8px">
+          <DatabaseOutlined />
+          {{ t("TXT_CODE_88249aee") }}
+        </a-typography-title>
+        <a-typography-paragraph>
+          <Flex justify="space-between" align="flex-start">
+            <p style="opacity: 0.6">
+              <span>{{ t("TXT_CODE_c9ce7427") }}</span>
+            </p>
+            <p style="opacity: 0.6">
+              <Link target="_blank" @click="openEditor">
+                {{ t("TXT_CODE_85c10fde") }}
+              </Link>
+              <Divider type="vertical" />
+              <Link href="https://github.com/MCSManager/Script/issues/77" target="_blank">
+                {{ t("TXT_CODE_709c2db4") }}
+              </Link>
+            </p>
+          </Flex>
+        </a-typography-paragraph>
+      </div>
+      <McPreset :card="card" />
+    </div>
 
-    <!-- 创建实例表单弹窗 -->
+    <Tour
+      v-model:current="tourCurrent"
+      :open="openTour"
+      :steps="tourSteps"
+      @close="markTourDone"
+      @finish="markTourDone"
+    />
+
     <a-modal
       v-model:open="showCreateForm"
       :title="t('TXT_CODE_645bc545')"

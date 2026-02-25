@@ -173,7 +173,7 @@
   "TXT_CODE_1d9d0746": "使用者 ID",
   "TXT_CODE_1dc0000f": "當玩家嘗試入睡但玩家入睡百分比遊戲規則設定為大於 100 時出現的動作欄資訊。設定為 'default' 讓客戶端使用其可翻譯的元件；設定為空字串以停用。",
   "TXT_CODE_1dc16497": "玩家最大區塊發送速率",
-  "TXT_CODE_1deaa2dd": "使用者",
+  "TXT_CODE_1deaa2dd": "用戶管理",
   "TXT_CODE_1df9fbd5": "匯入",
   "TXT_CODE_1e03347e": "外部存取連接埠：{{- host}} -> 容器內連接埠：{{- container}} / 協議：{{- protocol}}",
   "TXT_CODE_1e08ca6b": "要塞種子",
