@@ -1,11 +1,12 @@
 import fs from "fs-extra";
 import path from "path";
 import properties from "properties";
-import toml from 'smol-toml';
+import toml from "smol-toml";
 import yaml from "yaml";
 import { $t } from "../../i18n";
 
 const CONFIG_FILE_ENCODE = "utf-8";
+const FLOAT_MAGIC_PREFIX = "<__float__>";
 
 export interface IProcessConfig {
   fileName: string;
@@ -95,19 +96,19 @@ function convertTomlReadValues(obj: any): any {
   if (Array.isArray(obj)) {
     return obj.map(convertTomlReadValues);
   }
-  if (typeof obj === 'object' && obj.constructor === Object) {
+  if (typeof obj === "object" && obj.constructor === Object) {
     for (const key in obj) {
       obj[key] = convertTomlReadValues(obj[key]);
     }
     return obj;
   }
 
-  if (typeof obj === 'bigint') {
+  if (typeof obj === "bigint") {
     return Number(obj);
   }
-  if (typeof obj === 'number') {
-    const value = "<float>" + String(obj)
-    if (value.indexOf(".") != -1) return value
+  if (typeof obj === "number") {
+    const value = FLOAT_MAGIC_PREFIX + String(obj);
+    if (value.indexOf(".") != -1) return value;
     return `${value}.0`;
   }
   return obj;
@@ -118,18 +119,18 @@ function convertTomlWriteValues(obj: any): any {
   if (Array.isArray(obj)) {
     return obj.map(convertTomlWriteValues);
   }
-  if (typeof obj === 'object' && obj.constructor === Object) {
+  if (typeof obj === "object" && obj.constructor === Object) {
     for (const key in obj) {
       obj[key] = convertTomlWriteValues(obj[key]);
     }
     return obj;
   }
 
-  if (typeof obj === 'number') {
+  if (typeof obj === "number") {
     return BigInt(obj);
   }
-  if (typeof obj === 'string' && obj.startsWith('<float>')) {
-    return Number(obj.replace('<float>', ''));
+  if (typeof obj === "string" && obj.startsWith(FLOAT_MAGIC_PREFIX)) {
+    return Number(obj.replace(FLOAT_MAGIC_PREFIX, ""));
   }
   return obj;
 }

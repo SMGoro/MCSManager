@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
 import { t } from "@/lang/i18n";
 import { EditOutlined } from "@ant-design/icons-vue";
+import { computed, onMounted, ref } from "vue";
 
+const FLOAT_MAGIC_PREFIX = "<__float__>";
 const props = defineProps<{
   optionValue?: Record<string, any>;
   optionKey?: any;
@@ -21,15 +22,15 @@ const type = ref(2);
 const computedValue = computed({
   get: () => {
     const v = value.value[key.value];
-    if (typeof v === "string" && v.startsWith("<float>")) {
-      return v.replace("<float>", "");
+    if (typeof v === "string" && v.startsWith(FLOAT_MAGIC_PREFIX)) {
+      return v.replace(FLOAT_MAGIC_PREFIX, "");
     }
     return v;
   },
   set: (v) => {
     const preValue = value.value[key.value];
-    if (typeof preValue === "string" && preValue.startsWith("<float>")) {
-      value.value[key.value] = `<float>${v}`;
+    if (typeof preValue === "string" && preValue.startsWith(FLOAT_MAGIC_PREFIX)) {
+      value.value[key.value] = `${FLOAT_MAGIC_PREFIX}${v}`;
       return;
     }
     value.value[key.value] = v;
