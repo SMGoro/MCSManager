@@ -62,7 +62,7 @@ defineExpose({
   </a-typography-title>
   <a-typography-paragraph>
     <Flex justify="space-between" align="flex-start">
-      <p>
+      <p style="opacity: 0.6">
         <span>{{ t("TXT_CODE_c9ce7427") }}</span>
         <span v-if="onlyDockerTemplate">
           <br />
