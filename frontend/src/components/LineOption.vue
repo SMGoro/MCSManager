@@ -18,6 +18,24 @@ const value = ref<Record<string, any>>({});
 const key = ref();
 const type = ref(2);
 
+const computedValue = computed({
+  get: () => {
+    const v = value.value[key.value];
+    if (typeof v === "string" && v.startsWith("<float>")) {
+      return v.replace("<float>", "");
+    }
+    return v;
+  },
+  set: (v) => {
+    const preValue = value.value[key.value];
+    if (typeof preValue === "string" && preValue.startsWith("<float>")) {
+      value.value[key.value] = `<float>${v}`;
+      return;
+    }
+    value.value[key.value] = v;
+  }
+});
+
 const valueType = computed(() => {
   if (typeof value.value[key.value] === "boolean") {
     return CONTROL.SELECT;
@@ -54,10 +72,10 @@ onMounted(() => {
               <slot name="optionInput"></slot>
             </div>
             <div v-else class="flex">
-              <a-input v-if="type == CONTROL.INPUT" v-model:value="value[key]" />
+              <a-input v-if="type == CONTROL.INPUT" v-model:value="computedValue" />
               <a-select
                 v-if="type == CONTROL.SELECT"
-                v-model:value="value[key]"
+                v-model:value="computedValue"
                 style="width: 100%"
                 :placeholder="t('TXT_CODE_fe3f34e6')"
               >
