@@ -58,7 +58,7 @@ export class SetupDockerContainer extends AsyncTask {
     let commandList: string[];
     if (instance.config?.startCommand?.trim() || customCommand?.trim()) {
       const tmpCmd = customCommand ?? instance.config.startCommand;
-      commandList = commandStringToArray(instance.parseTextParams(tmpCmd));
+      commandList = commandStringToArray(await instance.parseTextParams(tmpCmd));
     } else {
       commandList = [];
     }
@@ -75,7 +75,7 @@ export class SetupDockerContainer extends AsyncTask {
     const publicPortArray: PublicPortArray = {};
     const exposedPorts: ExposedPorts = {};
     for (const portConfigText of portMap) {
-      const elem = instance.parseTextParams(portConfigText).split("/");
+      const elem = (await instance.parseTextParams(portConfigText)).split("/");
       if (elem.length != 2) throw new Error($t("TXT_CODE_1cf6fc4b"));
       const ports = elem[0];
       const protocol = elem[1];
@@ -147,10 +147,32 @@ export class SetupDockerContainer extends AsyncTask {
       throw new Error($t("TXT_CODE_instance.invalidContainerName", { v: containerName }));
     }
 
-    // Whether to use TTY mode
-    const isTty = instance.config.terminalOption.pty;
-
     const workingDir = dockerConfig.workingDir || undefined;
+
+    // capabilities
+    const capAdd = dockerConfig.capAdd || [];
+    const capDrop = dockerConfig.capDrop || [];
+
+    // resolve devices
+    // /dev/a, /dev/a|dev/b, /dev/a|/dev/b|rwm, /dev/a||rwm
+    const devices = dockerConfig.devices || [];
+    const parsedDevices: {
+      PathOnHost: string;
+      PathInContainer: string;
+      CgroupPermissions: string;
+    }[] = [];
+    for (const item of devices) {
+      if (!item) throw new Error($t("TXT_CODE_ae441ea4"));
+      const parts = item.split("|").map((p) => p.trim());
+      if (!parts[0]) throw new Error($t("TXT_CODE_ae441ea4"));
+      parsedDevices.push({
+        PathOnHost: parts[0],
+        PathInContainer: parts[1] || parts[0],
+        CgroupPermissions: parts[2] || "rwm"
+      });
+    }
+
+    const privileged = dockerConfig.privileged || false;
 
     let cwd = instance.absoluteCwdPath();
     const defaultInstanceDir = InstanceSubsystem.getInstanceDataDir();
@@ -159,21 +181,21 @@ export class SetupDockerContainer extends AsyncTask {
       cwd = path.normalize(path.join(hostRealPath, instance.instanceUuid));
     }
 
-    const mounts: Docker.MountConfig =
-      extraBinds.map((v) => {
-        const hostPath = instance.parseTextParams(v.hostPath);
-        if (!fs.existsSync(hostPath)) fs.mkdirsSync(hostPath);
-        return {
-          Type: "bind",
-          Source: hostPath,
-          Target: instance.parseTextParams(v.containerPath)
-        };
-      }) || [];
+    const mounts: Docker.MountConfig = [];
+    for (const v of extraBinds) {
+      const hostPath = await instance.parseTextParams(v.hostPath);
+      if (!fs.existsSync(hostPath)) fs.mkdirsSync(hostPath);
+      mounts.push({
+        Type: "bind",
+        Source: hostPath,
+        Target: await instance.parseTextParams(v.containerPath)
+      });
+    }
     if (workingDir && cwd) {
       mounts.push({
         Type: "bind",
         Source: cwd,
-        Target: instance.parseTextParams(workingDir)
+        Target: await instance.parseTextParams(workingDir)
       });
     }
 
@@ -243,7 +265,7 @@ export class SetupDockerContainer extends AsyncTask {
       AttachStdin: true,
       AttachStdout: true,
       AttachStderr: true,
-      Tty: isTty,
+      Tty: true, // force PTY mode
       WorkingDir: dockerConfig.changeWorkdir ? workingDir : undefined,
       OpenStdin: true,
       StdinOnce: false,
@@ -269,7 +291,11 @@ export class SetupDockerContainer extends AsyncTask {
         CpuQuota: cpuQuota,
         PortBindings: publicPortArray,
         NetworkMode: dockerConfig.networkMode,
-        Mounts: mounts
+        Mounts: mounts,
+        CapAdd: capAdd,
+        CapDrop: capDrop,
+        Devices: parsedDevices,
+        Privileged: privileged
       },
       // Only set NetworkingConfig for non-host network modes
       // host mode uses the host's network stack and doesn't support EndpointsConfig

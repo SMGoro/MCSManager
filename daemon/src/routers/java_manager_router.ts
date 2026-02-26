@@ -7,6 +7,7 @@ import { JavaInfo } from "../entity/commands/java/java_manager";
 import { $t } from "../i18n";
 import downloadManager from "../service/download_manager";
 import javaManager from "../service/java_manager";
+import logger from "../service/log";
 import * as protocol from "../service/protocol";
 import { routerApp } from "../service/router";
 import FileManager from "../service/system_file";
@@ -16,12 +17,27 @@ routerApp.on("java_manager/list", async (ctx) => {
   protocol.response(ctx, javaManager.list());
 });
 
-routerApp.on("java_manager/download", async (ctx, data) => {
-  const info = new JavaInfo(data.name, data.version, Date.now());
+routerApp.on("java_manager/add", async (ctx, data) => {
+  const info = new JavaInfo(data.name, Date.now());
 
+  try {
+    if (!FileManager.checkFileName(data.name)) throw new Error($t("TXT_CODE_b623b66f"));
+
+    if (javaManager.exists(info.fullname)) throw new Error($t("TXT_CODE_79cf0302"));
+    info.path = path.normalize(data.path);
+    javaManager.addJava(info);
+    protocol.response(ctx, true);
+  } catch (error: any) {
+    protocol.responseError(ctx, error);
+  }
+});
+
+routerApp.on("java_manager/download", async (ctx, data) => {
+  const info = new JavaInfo(data.name, Date.now(), data.version);
   if (javaManager.exists(info.fullname)) {
     return protocol.responseError(ctx, new Error($t("TXT_CODE_79cf0302")));
   }
+  protocol.response(ctx, true);
 
   info.downloading = true;
   try {
@@ -30,8 +46,7 @@ routerApp.on("java_manager/download", async (ctx, data) => {
     const downloadUrl = await javaManager.getJavaDownloadUrl(info);
     if (!downloadUrl) throw new Error($t("TXT_CODE_4b0f31b4"));
 
-    protocol.response(ctx, true);
-
+    logger.info(`Download Java: ${downloadUrl} --> ${info.fullname}`);
     const javaPath = path.join(javaManager.getJavaDataDir(), info.fullname);
     fs.mkdirsSync(javaPath);
 
@@ -62,11 +77,12 @@ routerApp.on("java_manager/download", async (ctx, data) => {
         strip: 1
       });
     }
-    await fs.remove(filePath);
 
+    logger.info(`Install Env Success: ${info.fullname}`);
     info.downloading = false;
     javaManager.updateJavaInfo(info);
   } catch (error: any) {
+    logger.warn(`Install Env Error: ${error.message}`);
     await javaManager.removeJava(info.fullname);
     protocol.responseError(ctx, error);
   }

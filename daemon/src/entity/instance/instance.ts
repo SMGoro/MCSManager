@@ -105,7 +105,7 @@ export default class Instance extends EventEmitter {
   public process?: IInstanceProcess;
 
   private outputLoopTask?: NodeJS.Timeout;
-  private outputBuffer = new CircularBuffer<string>(64);
+  private outputBuffer: CircularBuffer<string>;
 
   // When initializing an instance, the instance must be initialized through uuid and configuration class, otherwise the instance will be unavailable
   constructor(instanceUuid: string, config: InstanceConfig) {
@@ -121,6 +121,10 @@ export default class Instance extends EventEmitter {
     this.lock = false;
 
     this.config = config;
+
+    this.outputBuffer = new CircularBuffer<string>(
+      globalConfiguration.config.outputBufferSize || 256
+    );
 
     this.process = undefined;
     this.startCount = 0;
@@ -231,6 +235,10 @@ export default class Instance extends EventEmitter {
       configureEntityParams(this.config.docker, cfg.docker, "changeWorkdir", Boolean);
       configureEntityParams(this.config.docker, cfg.docker, "memorySwappiness", Number);
       configureEntityParams(this.config.docker, cfg.docker, "memorySwap", Number);
+      configureEntityParams(this.config.docker, cfg.docker, "capAdd");
+      configureEntityParams(this.config.docker, cfg.docker, "capDrop");
+      configureEntityParams(this.config.docker, cfg.docker, "devices");
+      configureEntityParams(this.config.docker, cfg.docker, "privileged", Boolean);
     }
     if (cfg.pingConfig) {
       configureEntityParams(this.config.pingConfig, cfg.pingConfig, "ip", String);
@@ -356,6 +364,8 @@ export default class Instance extends EventEmitter {
   // function that must be executed after the instance has been closed
   // trigger exit event
   stopped(code = 0) {
+    // Close all lifecycle tasks
+    this.stopOutputLoop();
     this.println("INFO", $t("TXT_CODE_70ce6fbb"));
     this.releaseResources();
     if (this.instanceStatus != Instance.STATUS_STOP) {
@@ -365,8 +375,6 @@ export default class Instance extends EventEmitter {
       StorageSubsystem.store("InstanceConfig", this.instanceUuid, this.config);
     }
 
-    // Close all lifecycle tasks
-    this.stopOutputLoop();
     this.lifeCycleTaskManager.execLifeCycleTask(0);
 
     // If automatic restart is enabled, the startup operation is performed immediately
@@ -508,7 +516,7 @@ export default class Instance extends EventEmitter {
     this.info.latency = 0;
   }
 
-  public parseTextParams(text: string) {
+  public async parseTextParams(text: string) {
     if (typeof text !== "string") return "";
     text = text.replace(/\{mcsm_workspace\}/gim, this.absoluteCwdPath());
     text = text.replace(/\{mcsm_cwd\}/gim, this.absoluteCwdPath());
@@ -522,7 +530,7 @@ export default class Instance extends EventEmitter {
 
     const javaId = this.config.java.id;
     if (javaId) {
-      text = text.replace(/\{mcsm_java\}/gim, javaManager.getJavaRuntimeCommand(javaId));
+      text = text.replace(/\{mcsm_java\}/gim, await javaManager.getJavaRuntimeCommand(javaId));
     }
 
     const ports = Array.from(
@@ -559,18 +567,26 @@ export default class Instance extends EventEmitter {
     this.outputBuffer.pushLog(data);
   }
 
+  private flushOutputBuffer(shouldClear = false) {
+    const { items, wasDeleted } = this.outputBuffer.getCache();
+    if (!items.length) return;
+    if (wasDeleted) items.unshift(IGNORE_TEXT);
+    if (shouldClear) this.outputBuffer.clear();
+    this.emit("data", items.join(""));
+  }
+
   private startOutputLoop() {
-    this.stopOutputLoop();
+    this.outputBuffer = new CircularBuffer<string>(
+      globalConfiguration.config.outputBufferSize || 256
+    );
     this.outputLoopTask = setInterval(() => {
-      const { items, wasDeleted } = this.outputBuffer.getCache();
-      if (!items.length) return;
-      if (wasDeleted) items.unshift(IGNORE_TEXT);
-      this.emit("data", items.join(""));
+      this.flushOutputBuffer();
     }, 50);
   }
 
   private stopOutputLoop() {
     if (this.outputLoopTask) clearInterval(this.outputLoopTask);
     this.outputLoopTask = undefined;
+    this.flushOutputBuffer(true);
   }
 }

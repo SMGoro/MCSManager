@@ -141,12 +141,11 @@ export default class PtyStartCommand extends AbsStartCommand {
   }
 
   async createProcess(instance: Instance) {
-    if (
-      !instance.config.startCommand ||
-      !instance.hasCwdPath() ||
-      !instance.config.ie ||
-      !instance.config.oe
-    )
+    if (!instance.config.ie || !instance.config.oe) {
+      instance.config.ie = "utf-8";
+      instance.config.oe = "utf-8";
+    }
+    if (!instance.config.startCommand || !instance.hasCwdPath())
       throw new StartupError($t("TXT_CODE_pty_start.cmdErr"));
     if (!fs.existsSync(instance.absoluteCwdPath())) fs.mkdirpSync(instance.absoluteCwdPath());
     if (!path.isAbsolute(path.normalize(instance.absoluteCwdPath())))
@@ -170,7 +169,7 @@ export default class PtyStartCommand extends AbsStartCommand {
 
     // command parsing
     let commandList: string[] = [];
-    const tmpStarCmd = instance.parseTextParams(instance.config.startCommand);
+    const tmpStarCmd = await instance.parseTextParams(instance.config.startCommand);
     if (os.platform() === "win32") {
       // windows: cmd.exe /c {{startCommand}}
       commandList = [tmpStarCmd];
@@ -220,6 +219,8 @@ export default class PtyStartCommand extends AbsStartCommand {
       instance.println("INFO", $t("TXT_CODE_ba09da46", { name: runAsConfig.runAsName }));
     }
 
+    instance.println("INFO", "> " + commandList.join(" "));
+
     // create pty child process
     const subProcess = spawn(PTY_PATH, ptyParameter, {
       ...runAsConfig,
@@ -238,7 +239,7 @@ export default class PtyStartCommand extends AbsStartCommand {
       instance.println(
         "ERROR",
         $t("TXT_CODE_pty_start.pidErr", {
-          startCommand: instance.config.startCommand,
+          startCommand: commandList.join(" "),
           path: PTY_PATH,
           params: JSON.stringify(ptyParameter)
         })
@@ -254,7 +255,7 @@ export default class PtyStartCommand extends AbsStartCommand {
       instance.println(
         "ERROR",
         $t("TXT_CODE_pty_start.pidErr", {
-          startCommand: instance.config.startCommand,
+          startCommand: commandList.join(" "),
           path: PTY_PATH,
           params: JSON.stringify(ptyParameter)
         })
@@ -271,7 +272,6 @@ export default class PtyStartCommand extends AbsStartCommand {
         pid: ptySubProcessCfg.pid
       })
     );
-    instance.println("INFO", $t("TXT_CODE_pty_start.startEmulatedTerminal"));
     instance.println("INFO", $t("TXT_CODE_b50ffba8"));
   }
 }

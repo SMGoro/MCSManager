@@ -43,7 +43,8 @@ class JavaManager {
         continue;
       }
 
-      const info = new JavaInfo(config.name, config.version, config.installTime ?? Date.now());
+      const info = new JavaInfo(config.name, config.installTime ?? Date.now(), config.version);
+      info.path = config.path;
       this.javaList.set(info.fullname, {
         info: info,
         path: javaPath,
@@ -81,7 +82,9 @@ class JavaManager {
         const url =
           "https://api.azul.com/metadata/v1/zulu/packages/?java_package_type=jdk&javafx_bundled=true&release_status=ga&availability_types=CA&certifications=tck&page=1&page_size=2" +
           `&java_version=${info.version}&os=${platform}&arch=${os.arch()}`;
-        const response = await axios.get(url);
+        const response = await axios.get(url, {
+          timeout: 1000 * 3
+        });
 
         const data = response.data;
         if (!data) return;
@@ -105,9 +108,10 @@ class JavaManager {
 
     StorageSubsystem.store(`JavaData/${info.fullname}`, "java_info", {
       name: info.name,
+      path: info.path,
       version: info.version,
       installTime: info.installTime,
-      downloading: info.downloading
+      downloading: false
     });
 
     this.javaList.set(info.fullname, {
@@ -123,21 +127,44 @@ class JavaManager {
 
     StorageSubsystem.store(`JavaData/${info.fullname}`, "java_info", {
       name: info.name,
+      path: info.path,
       version: info.version,
       installTime: info.installTime,
-      downloading: info.downloading
+      downloading: false
     });
   }
 
-  getJavaRuntimeCommand(id: string) {
+  async getJavaRuntimeCommand(id: string) {
     const java = this.getJava(id);
     if (!java) throw new Error($t("TXT_CODE_77ce8542"));
     if (java.info.downloading) throw new Error($t("TXT_CODE_45d02bb7"));
 
-    let javaPath = java.path;
+    let javaPath = java.info.path ?? java.path;
     if (!javaPath) throw new Error($t("TXT_CODE_82c8bca3"));
 
-    let javaRuntimePath = path.join(
+    // For macOS, if Java is within a .jdk bundle, use the Contents/Home/bin/java path
+    if (os.platform() === "darwin") {
+      // Scan first-level subdirectories under javaPath to find Contents directory
+      try {
+        const entries = await fs.readdir(javaPath);
+        for (const entry of entries) {
+          const entryPath = path.join(javaPath, entry);
+          const stat = await fs.stat(entryPath);
+          if (stat.isDirectory()) {
+            const contentsPath = path.join(entryPath, "Contents");
+            if (await fs.pathExists(contentsPath)) {
+              // Found Contents directory, construct new javaPath
+              javaPath = path.join(entryPath, "Contents", "Home");
+              break;
+            }
+          }
+        }
+      } catch (error) {
+        // If scan fails, use original javaPath
+      }
+    }
+
+    const javaRuntimePath = path.join(
       javaPath,
       "bin",
       os.platform() == "win32" ? "java.exe" : "java"
@@ -150,7 +177,7 @@ class JavaManager {
     const java = this.getJava(id);
     if (!java) throw new Error($t("TXT_CODE_77ce8542"));
 
-    if (java.info.downloading) throw new Error($t("TXT_CODE_887fee99"));
+    // if (java.info.downloading) throw new Error($t("TXT_CODE_887fee99"));
     if (java.usingInstances.length) throw new Error($t("TXT_CODE_ea8ea5d1"));
 
     let javaPath = java.path;

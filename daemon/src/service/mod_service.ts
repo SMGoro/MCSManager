@@ -1,13 +1,12 @@
-import toml from "@iarna/toml";
 import crypto from "crypto";
 import fs from "fs-extra";
 import StreamZip from "node-stream-zip";
 import path from "path";
+import toml from 'smol-toml';
 import yaml from "yaml";
 import downloadManager from "./download_manager";
 import { getFileManager } from "./file_router_service";
 import logger from "./log";
-import FileManager from "./system_file";
 
 export interface ModInfo {
   name: string;
@@ -96,7 +95,7 @@ export class ModService {
             description: mod.description,
             type: "mod"
           };
-        } catch (e) {}
+        } catch (e) { }
       }
 
       // Quilt
@@ -172,9 +171,9 @@ export class ModService {
 
     const fileManager = getFileManager(instanceUuid);
 
-    if (!FileManager.checkFileName(folder ?? "")) {
-      throw new Error("Invalid folder name");
-    }
+    // if (!FileManager.checkFileName(folder ?? "")) {
+    //   throw new Error("Invalid folder name");
+    // }
 
     const result: ModInfo[] = [];
     const folders: string[] = [];
