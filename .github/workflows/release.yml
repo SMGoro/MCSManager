@@ -47,7 +47,8 @@ jobs:
 
       - name: Warn when CNB token missing
         if: ${{ secrets.CNB_TOKEN == '' }}
-        run: echo "CNB sync skipped: please set repository secret CNB_TOKEN."
+        run: |
+          echo "CNB sync skipped: please set repository secret CNB_TOKEN."
 
       - name: Setup Node
         uses: actions/setup-node@v4
