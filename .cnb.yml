@@ -18,8 +18,110 @@ master-smgoro:
             git tag -fa latest -m "latest -> $CNB_COMMIT"
             git push origin refs/tags/latest --force
 
+    - name: docker-build-push-latest
+      services:
+        - docker
+      stages:
+        - name: Docker build web latest
+          script: |
+            set -eu
+            docker build \
+              -f dockerfile/web.dockerfile \
+              --build-arg BUILDPLATFORM=linux/amd64 \
+              -t ${CNB_DOCKER_REGISTRY}/${CNB_REPO_SLUG_LOWERCASE}/mcsmanager-web:latest .
+        - name: Docker push web latest
+          script: docker push ${CNB_DOCKER_REGISTRY}/${CNB_REPO_SLUG_LOWERCASE}/mcsmanager-web:latest
+
+        - name: Docker build daemon jdk21 latest
+          script: |
+            set -eu
+            docker build \
+              -f dockerfile/daemon.dockerfile \
+              --build-arg BUILDPLATFORM=linux/amd64 \
+              --build-arg EMBEDDED_JAVA_VERSION=21 \
+              -t ${CNB_DOCKER_REGISTRY}/${CNB_REPO_SLUG_LOWERCASE}/mcsmanager-daemon:latest \
+              -t ${CNB_DOCKER_REGISTRY}/${CNB_REPO_SLUG_LOWERCASE}/mcsmanager-daemon-jdk21:latest .
+        - name: Docker push daemon jdk21 latest
+          script: |
+            set -eu
+            docker push ${CNB_DOCKER_REGISTRY}/${CNB_REPO_SLUG_LOWERCASE}/mcsmanager-daemon:latest
+            docker push ${CNB_DOCKER_REGISTRY}/${CNB_REPO_SLUG_LOWERCASE}/mcsmanager-daemon-jdk21:latest
+
 "$":
   tag_push:
+    - name: docker-build-push-release
+      services:
+        - docker
+      stages:
+        - name: verify-tag-from-master-smgoro-for-docker
+          script: |
+            set -eu
+            git fetch origin master-smgoro:refs/remotes/origin/master-smgoro
+            TAG_COMMIT=$(git rev-list -n 1 "$CNB_BRANCH")
+
+            if ! git merge-base --is-ancestor "$TAG_COMMIT" "origin/master-smgoro"; then
+              echo "Tag commit $TAG_COMMIT is not on branch master-smgoro history"
+              exit 1
+            fi
+
+        - name: Docker build web release
+          script: |
+            set -eu
+            docker build \
+              -f dockerfile/web.dockerfile \
+              --build-arg BUILDPLATFORM=linux/amd64 \
+              -t ${CNB_DOCKER_REGISTRY}/${CNB_REPO_SLUG_LOWERCASE}/mcsmanager-web:${CNB_BRANCH} .
+        - name: Docker push web release
+          script: docker push ${CNB_DOCKER_REGISTRY}/${CNB_REPO_SLUG_LOWERCASE}/mcsmanager-web:${CNB_BRANCH}
+
+        - name: Docker build daemon jdk8 release
+          script: |
+            set -eu
+            docker build \
+              -f dockerfile/daemon.dockerfile \
+              --build-arg BUILDPLATFORM=linux/amd64 \
+              --build-arg EMBEDDED_JAVA_VERSION=8 \
+              -t ${CNB_DOCKER_REGISTRY}/${CNB_REPO_SLUG_LOWERCASE}/mcsmanager-daemon-jdk8:${CNB_BRANCH} .
+        - name: Docker push daemon jdk8 release
+          script: docker push ${CNB_DOCKER_REGISTRY}/${CNB_REPO_SLUG_LOWERCASE}/mcsmanager-daemon-jdk8:${CNB_BRANCH}
+
+        - name: Docker build daemon jdk11 release
+          script: |
+            set -eu
+            docker build \
+              -f dockerfile/daemon.dockerfile \
+              --build-arg BUILDPLATFORM=linux/amd64 \
+              --build-arg EMBEDDED_JAVA_VERSION=11 \
+              -t ${CNB_DOCKER_REGISTRY}/${CNB_REPO_SLUG_LOWERCASE}/mcsmanager-daemon-jdk11:${CNB_BRANCH} .
+        - name: Docker push daemon jdk11 release
+          script: docker push ${CNB_DOCKER_REGISTRY}/${CNB_REPO_SLUG_LOWERCASE}/mcsmanager-daemon-jdk11:${CNB_BRANCH}
+
+        - name: Docker build daemon jdk17 release
+          script: |
+            set -eu
+            docker build \
+              -f dockerfile/daemon.dockerfile \
+              --build-arg BUILDPLATFORM=linux/amd64 \
+              --build-arg EMBEDDED_JAVA_VERSION=17 \
+              -t ${CNB_DOCKER_REGISTRY}/${CNB_REPO_SLUG_LOWERCASE}/mcsmanager-daemon-jdk17:${CNB_BRANCH} .
+        - name: Docker push daemon jdk17 release
+          script: docker push ${CNB_DOCKER_REGISTRY}/${CNB_REPO_SLUG_LOWERCASE}/mcsmanager-daemon-jdk17:${CNB_BRANCH}
+
+        - name: Docker build daemon jdk21 release
+          script: |
+            set -eu
+            docker build \
+              -f dockerfile/daemon.dockerfile \
+              --build-arg BUILDPLATFORM=linux/amd64 \
+              --build-arg EMBEDDED_JAVA_VERSION=21 \
+              -t ${CNB_DOCKER_REGISTRY}/${CNB_REPO_SLUG_LOWERCASE}/mcsmanager-daemon:${CNB_BRANCH} \
+              -t ${CNB_DOCKER_REGISTRY}/${CNB_REPO_SLUG_LOWERCASE}/mcsmanager-daemon-jdk21:${CNB_BRANCH} .
+        - name: Docker push daemon jdk21 release
+          script: |
+            set -eu
+            docker push ${CNB_DOCKER_REGISTRY}/${CNB_REPO_SLUG_LOWERCASE}/mcsmanager-daemon:${CNB_BRANCH}
+            docker push ${CNB_DOCKER_REGISTRY}/${CNB_REPO_SLUG_LOWERCASE}/mcsmanager-daemon-jdk21:${CNB_BRANCH}
+
     - name: release-build
       docker:
         image: node:20-bullseye
