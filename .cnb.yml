@@ -8,7 +8,7 @@
       stages:
         - name: verify-tag-from-master-smgoro
           script: |
-            set -euo pipefail
+            set -eu
             git fetch origin master-smgoro:refs/remotes/origin/master-smgoro
             TAG_COMMIT=$(git rev-list -n 1 "$CNB_BRANCH")
 
@@ -19,25 +19,25 @@
 
         - name: prepare-tools
           script: |
-            set -euo pipefail
+            set -eu
             apt-get update
             apt-get install -y wget zip tar
 
         - name: build-project
           script: |
-            set -euo pipefail
+            set -eu
             chmod a+x ./install-dependents.sh ./build.sh
             ./install-dependents.sh
             ./build.sh
 
         - name: add-binaries
           script: |
-            set -euo pipefail
+            set -eu
             wget --input-file=lib-urls.txt --directory-prefix=production-code/daemon/lib/
 
         - name: package-artifacts
           script: |
-            set -euo pipefail
+            set -eu
 
             cp -r production-code dist_linux
             mv production-code dist_windows
