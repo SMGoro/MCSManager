@@ -1,4 +1,4 @@
-main:
+master-smgoro:
   tag_push:
     - name: release-build
       docker:

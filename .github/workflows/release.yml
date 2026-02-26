@@ -6,6 +6,7 @@ on:
 
 jobs:
   build:
+    if: github.event.release.target_commitish == 'master-smgoro'
     runs-on: ubuntu-latest
 
     steps:
