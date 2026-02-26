@@ -1,4 +1,4 @@
-master-smgoro:
+"$":
   tag_push:
     - name: release-build
       docker:
@@ -6,6 +6,17 @@ master-smgoro:
         volumes:
           - /root/.npm
       stages:
+        - name: verify-tag-from-master-smgoro
+          script: |
+            set -euo pipefail
+            git fetch origin master-smgoro:refs/remotes/origin/master-smgoro
+            TAG_COMMIT=$(git rev-list -n 1 "$CNB_BRANCH")
+
+            if ! git merge-base --is-ancestor "$TAG_COMMIT" "origin/master-smgoro"; then
+              echo "Tag commit $TAG_COMMIT is not on branch master-smgoro history"
+              exit 1
+            fi
+
         - name: prepare-tools
           script: |
             set -euo pipefail
