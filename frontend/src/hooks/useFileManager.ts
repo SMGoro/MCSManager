@@ -23,7 +23,6 @@ import { mapDaemonAddress, parseForwardAddress, type RemoteMappingEntry } from "
 import { removeTrail } from "@/tools/string";
 import { reportErrorMsg } from "@/tools/validator";
 import type {
-  BatchChmodResult,
   Breadcrumb,
   DataType,
   DownloadFileConfigItem,
@@ -834,8 +833,8 @@ export const useFileManager = (instanceId: string = "", daemonId: string = "") =
       if (isMultiple.value) {
         if (!selectionData.value || selectionData.value.length === 0)
           return reportErrorMsg(t("TXT_CODE_b152cd75"));
-        const { execute } = changePermissionBatchApi();
-        const result = (await execute({
+        const { state, execute } = changePermissionBatchApi();
+        await execute({
           params: {
             daemonId: daemonId || "",
             uuid: instanceId || ""
@@ -845,8 +844,8 @@ export const useFileManager = (instanceId: string = "", daemonId: string = "") =
             deep: permission.deep,
             targets: selectionData.value.map((item) => currentPath.value + item.name)
           }
-        })) as { value?: BatchChmodResult };
-        const summary = result.value;
+        });
+        const summary = state.value;
         if (!summary || summary.failed === 0) {
           message.success(t("TXT_CODE_b05948d1"));
         } else if (summary.success === 0) {

@@ -129,12 +129,13 @@ router.put(
       const chmod = Number(ctx.request.body.chmod);
       const deep = Boolean(ctx.request.body.deep);
       const remoteService = RemoteServiceSubsystem.getInstance(daemonId);
+      const timeout = Math.min(5 * 60 * 1000, Math.max(15 * 1000, targets.length * 2 * 1000));
       const result = await new RemoteRequest(remoteService).request("file/chmod_batch", {
         targets,
         instanceUuid,
         chmod,
         deep
-      });
+      }, timeout);
       ctx.body = result;
     } catch (err) {
       ctx.body = err;

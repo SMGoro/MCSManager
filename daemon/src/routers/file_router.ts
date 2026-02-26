@@ -65,8 +65,12 @@ routerApp.on("file/chmod", async (ctx, data) => {
 routerApp.on("file/chmod_batch", async (ctx, data) => {
   try {
     const fileManager = getFileManager(data.instanceUuid);
-    const { chmod, targets } = data as { chmod: number; deep: boolean; targets: string[] };
-    const deep = Boolean(data.deep);
+    const { chmod, targets, deep: rawDeep } = data as {
+      chmod: number;
+      deep?: boolean;
+      targets: string[];
+    };
+    const deep = Boolean(rawDeep);
     const results: { target: string; success: boolean; error?: string }[] = [];
     let success = 0;
     let failed = 0;
