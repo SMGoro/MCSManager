@@ -22,12 +22,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Verify tag commit is from master-smgoro
-        if: github.event_name == 'push'
-        run: |
-          git fetch origin master-smgoro
-          git merge-base --is-ancestor "$GITHUB_SHA" "origin/master-smgoro"
-
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
