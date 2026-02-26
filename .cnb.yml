@@ -1,0 +1,69 @@
+main:
+  tag_push:
+    - name: release-build
+      docker:
+        image: node:20-bullseye
+        volumes:
+          - /root/.npm
+      stages:
+        - name: prepare-tools
+          script: |
+            set -euo pipefail
+            apt-get update
+            apt-get install -y wget zip tar
+
+        - name: build-project
+          script: |
+            set -euo pipefail
+            chmod a+x ./install-dependents.sh ./build.sh
+            ./install-dependents.sh
+            ./build.sh
+
+        - name: add-binaries
+          script: |
+            set -euo pipefail
+            wget --input-file=lib-urls.txt --directory-prefix=production-code/daemon/lib/
+
+        - name: package-artifacts
+          script: |
+            set -euo pipefail
+
+            cp -r production-code dist_linux
+            mv production-code dist_windows
+
+            cp prod-scripts/linux/* dist_linux/
+            cp prod-scripts/windows/* dist_windows/
+
+            cp LICENSE dist_linux/LICENSE
+            cp LICENSE dist_windows/LICENSE
+
+            wget https://nodejs.org/download/release/latest-v20.x/win-x64/node.exe -O dist_windows/daemon/node_app.exe
+            cp dist_windows/daemon/node_app.exe dist_windows/web/node_app.exe
+
+            mv dist_linux/ mcsmanager/
+            tar czf mcsmanager_linux_release.tar.gz mcsmanager/
+            tar --exclude='mcsmanager/daemon' --exclude='mcsmanager/start-daemon.sh' -czf mcsmanager_linux_web_only_release.tar.gz mcsmanager/
+            tar --exclude='mcsmanager/web' --exclude='mcsmanager/start-web.sh' -czf mcsmanager_linux_daemon_only_release.tar.gz mcsmanager/
+            rm -rf mcsmanager/
+
+            mv dist_windows/ mcsmanager/
+            zip -r mcsmanager_windows_release.zip mcsmanager/
+            zip -r mcsmanager_windows_web_only_release.zip mcsmanager/ -x "mcsmanager/daemon/*"
+            zip -r mcsmanager_windows_daemon_only_release.zip mcsmanager/ -x "mcsmanager/web/*"
+
+        - name: create-cnb-release
+          type: git:release
+          options:
+            title: $CNB_BRANCH
+            overlying: true
+
+        - name: upload-cnb-release-assets
+          image: cnbcool/attachments:latest
+          settings:
+            attachments:
+              - ./mcsmanager_windows_release.zip
+              - ./mcsmanager_windows_web_only_release.zip
+              - ./mcsmanager_windows_daemon_only_release.zip
+              - ./mcsmanager_linux_release.tar.gz
+              - ./mcsmanager_linux_web_only_release.tar.gz
+              - ./mcsmanager_linux_daemon_only_release.tar.gz
