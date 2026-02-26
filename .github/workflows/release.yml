@@ -1,16 +1,32 @@
 name: Release Build
 
 on:
+  push:
+    tags:
+      - "v*"
   release:
     types: [published]
 
+permissions:
+  contents: write
+
 jobs:
   build:
-    if: github.event.release.target_commitish == 'master-smgoro'
+    if: |
+      (github.event_name == 'release' && github.event.release.target_commitish == 'master-smgoro') ||
+      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/'))
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify tag commit is from master-smgoro
+        if: github.event_name == 'push'
+        run: |
+          git fetch origin master-smgoro --depth=1
+          git merge-base --is-ancestor "$GITHUB_SHA" "origin/master-smgoro"
 
       - name: Setup Node
         uses: actions/setup-node@v4
