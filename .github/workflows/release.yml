@@ -23,11 +23,15 @@ jobs:
           fetch-depth: 0
 
       - name: Sync code to CNB
-        if: ${{ secrets.CNB_TOKEN != '' }}
         env:
           CNB_TOKEN: ${{ secrets.CNB_TOKEN }}
         run: |
           set -eu
+
+          if [ -z "${CNB_TOKEN:-}" ]; then
+            echo "CNB sync skipped: please set repository secret CNB_TOKEN."
+            exit 0
+          fi
 
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -44,11 +48,6 @@ jobs:
           if [ -n "${TAG_NAME}" ]; then
             git push cnb "refs/tags/${TAG_NAME}:refs/tags/${TAG_NAME}"
           fi
-
-      - name: Warn when CNB token missing
-        if: ${{ secrets.CNB_TOKEN == '' }}
-        run: |
-          echo "CNB sync skipped: please set repository secret CNB_TOKEN."
 
       - name: Setup Node
         uses: actions/setup-node@v4
