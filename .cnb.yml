@@ -1,3 +1,23 @@
+master-smgoro:
+  push:
+    - name: update-latest-tag
+      stages:
+        - name: move-latest-tag-to-head
+          script: |
+            set -eu
+
+            CURRENT_COMMIT=$(git rev-list -n 1 latest 2>/dev/null || true)
+            if [ "$CURRENT_COMMIT" = "$CNB_COMMIT" ]; then
+              echo "latest already points to $CNB_COMMIT"
+              exit 0
+            fi
+
+            git config user.name "cnb"
+            git config user.email "cnb@local"
+
+            git tag -fa latest -m "latest -> $CNB_COMMIT"
+            git push origin refs/tags/latest --force
+
 "$":
   tag_push:
     - name: release-build
