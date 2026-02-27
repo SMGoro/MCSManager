@@ -196,9 +196,9 @@ const realStatus = computed(() => computedStatusList.value.find((v) => v.type ==
             />
             <div class="status-bar-value">
               <span class="status-bar-value__percent">{{ realStatus.memUsedPercent }}%</span>
-              <span class="status-bar-value__unit"
-                >{{ realStatus.memUsedGB }} GB / {{ realStatus.memTotalGB }} GB</span
-              >
+              <span class="status-bar-value__unit">
+                {{ realStatus.memUsedGB }} GB / {{ realStatus.memTotalGB }} GB
+              </span>
             </div>
           </div>
         </div>

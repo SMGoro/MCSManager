@@ -3,7 +3,6 @@ import DataStatistic from "@/components/DataStatistic.vue";
 import { useOverviewInfo } from "@/hooks/useOverviewInfo";
 import { t } from "@/lang/i18n";
 import { arrayFilter } from "@/tools/array";
-import { getProgressStrokeColor } from "@/tools/progressColor";
 import type { LayoutCard } from "@/types";
 import {
   ApiOutlined,
@@ -134,15 +133,15 @@ const overviewList = computed(() => {
       total: totalMem
     },
     {
+      type: "cpu",
+      title: "CPU",
+      percent: cpuPercent
+    },
+    {
       type: "loadavg",
       title: t("TXT_CODE_190ecd56"),
       values: system.loadavg.map((v) => Number(Number(v).toFixed(2))) as [number, number, number],
       condition: () => !system.type.toLowerCase().includes("windows")
-    },
-    {
-      type: "cpu",
-      title: "CPU",
-      percent: cpuPercent
     },
     {
       type: "text",
@@ -195,14 +194,13 @@ const overviewList = computed(() => {
                 <DatabaseOutlined class="overview-item__icon" />
                 <span style="opacity: 0.7">{{ item.title }}</span>
               </div>
-              <a-progress
-                :percent="item.total > 0 ? Math.round((item.used / item.total) * 100) : 0"
-                :stroke-color="getProgressStrokeColor(item.total > 0 ? Math.round((item.used / item.total) * 100) : 0)"
-                :stroke-width="12"
-              />
               <div class="overview-item__value">
-                <span class="overview-item__percent">{{ item.total > 0 ? Math.round((item.used / item.total) * 100) : 0 }}%</span>
-                <span class="overview-item__unit">{{ item.used.toFixed(1) }} GB / {{ item.total.toFixed(1) }} GB</span>
+                <span class="overview-item__percent">
+                  {{ item.total > 0 ? Math.round((item.used / item.total) * 100) : 0 }}%
+                </span>
+                <span class="overview-item__unit">
+                  {{ item.used.toFixed(1) }} GB / {{ item.total.toFixed(1) }} GB
+                </span>
               </div>
             </div>
 
@@ -212,11 +210,7 @@ const overviewList = computed(() => {
                 <ThunderboltOutlined class="overview-item__icon" />
                 <span style="opacity: 0.7">{{ item.title }}</span>
               </div>
-              <a-progress
-                :percent="item.percent"
-                :stroke-color="getProgressStrokeColor(item.percent)"
-                :stroke-width="12"
-              />
+
               <div class="overview-item__value">
                 <span class="overview-item__percent">{{ item.percent }}%</span>
               </div>
@@ -230,7 +224,12 @@ const overviewList = computed(() => {
               </div>
               <div class="loadavg-tags">
                 <template v-for="(v, i) in item.values" :key="i">
-                  <a-tag color="green" class="loadavg-tag">{{ v.toFixed(2) }}</a-tag>
+                  <a-tag
+                    :color="i === 0 ? 'green' : i === 1 ? 'gold' : 'volcano'"
+                    class="loadavg-tag"
+                  >
+                    {{ v.toFixed(2) }}
+                  </a-tag>
                   <span v-if="i < item.values.length - 1" class="loadavg-sep">·</span>
                 </template>
               </div>
