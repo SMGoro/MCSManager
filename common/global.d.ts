@@ -164,6 +164,9 @@ declare global {
       portAssignInterval: number;
       port: number;
       outputBufferSize: number;
+      enableSoftShutdown: boolean;
+      softShutdownSkipDocker: boolean;
+      softShutdownWaitSeconds: number;
     };
     dockerPlatforms?: string[];
   }
