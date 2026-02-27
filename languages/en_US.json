@@ -3291,5 +3291,7 @@
   "TXT_CODE_963e00f": "Launch Server Using Docker Image",
   "TXT_CODE_572ba7f0": "For advanced users: On Linux systems, create servers from any image here.",
   "TXT_CODE_d284d8a9": "Quick Setup with Preset Package",
-  "TXT_CODE_22814776": "New to server creation? Choose our preset packages here! You can always reinstall or change them later."
+  "TXT_CODE_22814776": "New to server creation? Choose our preset packages here! You can always reinstall or change them later.",
+  "TXT_CODE_48382669": "Panel Host Resources",
+  "TXT_CODE_6a444b79": "Recent Sensitive Operations"
 }
