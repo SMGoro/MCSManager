@@ -314,14 +314,13 @@ class InstanceSubsystem extends EventEmitter {
     });
   }
 
-  // Soft exit: don't close Docker instances, soft close general instances only
-  softExit() {
+  // Soft exit: optional docker skip and configurable wait timeout
+  softExit(skipDocker = true, waitSeconds = 10) {
     const promises: Promise<void>[] = [];
     for (const iterator of this.instances) {
       const instance = iterator[1];
       if (instance.status() !== Instance.STATUS_STOP) {
-        // Skip Docker instances during soft exit
-        if (instance.config.processType === "docker") {
+        if (skipDocker && instance.config.processType === "docker") {
           logger.info(
             `Skipping Docker instance ${instance.config.nickname} (${instance.instanceUuid}) during soft shutdown...`
           );
@@ -340,18 +339,16 @@ class InstanceSubsystem extends EventEmitter {
         let count = 0;
         checkCount++;
         for (const [_, instance] of this.instances) {
-          if (
-            instance.config.processType !== "docker" &&
-            instance.status() !== Instance.STATUS_STOP
-          ) {
+          if (instance.status() !== Instance.STATUS_STOP) {
+            if (skipDocker && instance.config.processType === "docker") continue;
             count++;
-            if (checkCount > 10) {
+            if (checkCount > waitSeconds) {
               logger.info(
                 $t("TXT_CODE_eadac3c2", {
                   instance: instance.config.nickname
                 })
               );
-              // If it takes too long, force close non-Docker instances
+              // If it takes too long, force close target instances
               this.exitInstance(instance, true);
             }
           }
