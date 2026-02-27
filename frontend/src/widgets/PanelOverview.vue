@@ -3,6 +3,7 @@ import DataStatistic from "@/components/DataStatistic.vue";
 import { useOverviewInfo } from "@/hooks/useOverviewInfo";
 import { t } from "@/lang/i18n";
 import { arrayFilter } from "@/tools/array";
+import { getProgressStrokeColor } from "@/tools/progressColor";
 import type { LayoutCard } from "@/types";
 import {
   ApiOutlined,
@@ -188,48 +189,44 @@ const overviewList = computed(() => {
             :md="12"
             :lg="6"
           >
-            <!-- 内存：进度条 + 数值 -->
+            <!-- Memory: progress bar + percent and value -->
             <div v-if="item.type === 'memory'" class="overview-item overview-item--progress">
               <div class="overview-item__title">
                 <DatabaseOutlined class="overview-item__icon" />
-                <span>{{ item.title }}</span>
+                <span style="opacity: 0.7">{{ item.title }}</span>
               </div>
               <a-progress
                 :percent="item.total > 0 ? Math.round((item.used / item.total) * 100) : 0"
-                :stroke-color="{
-                  '0%': '#52c41a',
-                  '100%': '#faad14'
-                }"
-                size="small"
+                :stroke-color="getProgressStrokeColor(item.total > 0 ? Math.round((item.used / item.total) * 100) : 0)"
+                :stroke-width="12"
               />
               <div class="overview-item__value">
-                {{ item.used.toFixed(1) }} GB / {{ item.total.toFixed(1) }} GB
+                <span class="overview-item__percent">{{ item.total > 0 ? Math.round((item.used / item.total) * 100) : 0 }}%</span>
+                <span class="overview-item__unit">{{ item.used.toFixed(1) }} GB / {{ item.total.toFixed(1) }} GB</span>
               </div>
             </div>
 
-            <!-- CPU：进度条 + 数值 -->
+            <!-- CPU: progress bar + percent and value -->
             <div v-else-if="item.type === 'cpu'" class="overview-item overview-item--progress">
               <div class="overview-item__title">
                 <ThunderboltOutlined class="overview-item__icon" />
-                <span>{{ item.title }}</span>
+                <span style="opacity: 0.7">{{ item.title }}</span>
               </div>
               <a-progress
                 :percent="item.percent"
-                :stroke-color="{
-                  '0%': '#52c41a',
-                  '60%': '#faad14',
-                  '100%': '#ff4d4f'
-                }"
-                size="small"
+                :stroke-color="getProgressStrokeColor(item.percent)"
+                :stroke-width="12"
               />
-              <div class="overview-item__value">{{ item.percent }}%</div>
+              <div class="overview-item__value">
+                <span class="overview-item__percent">{{ item.percent }}%</span>
+              </div>
             </div>
 
-            <!-- Load Average：三个独立 Tag + 链接符 -->
+            <!-- Load Average: three tags with separator -->
             <div v-else-if="item.type === 'loadavg'" class="overview-item overview-item--loadavg">
               <div class="overview-item__title">
                 <ThunderboltOutlined class="overview-item__icon" />
-                <span>{{ item.title }}</span>
+                <span style="opacity: 0.7">{{ item.title }}</span>
               </div>
               <div class="loadavg-tags">
                 <template v-for="(v, i) in item.values" :key="i">
@@ -239,7 +236,7 @@ const overviewList = computed(() => {
               </div>
             </div>
 
-            <!-- 其他：图标 + 文本 -->
+            <!-- Other: icon + text -->
             <DataStatistic v-else :title="item.title" :value="item.value" :icon="item.icon" />
           </a-col>
         </a-row>
@@ -269,14 +266,32 @@ const overviewList = computed(() => {
   }
 
   &__value {
-    margin-top: 6px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 8px;
+    margin-top: 8px;
     color: var(--color-gary-6);
     font-size: var(--font-h5);
+
+    .overview-item__percent {
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .overview-item__unit {
+      opacity: 0.9;
+    }
   }
 
   &--progress {
     .ant-progress {
       margin-bottom: 0;
+    }
+
+    :deep(.ant-progress-outer),
+    :deep(.ant-progress-inner) {
+      border-radius: 8px;
     }
   }
 

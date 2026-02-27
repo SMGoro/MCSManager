@@ -4,7 +4,7 @@ import type { Component } from "vue";
 defineProps<{
   title: string;
   value: string;
-  /** Ant Design Vue 图标组件，可选 */
+  /** Optional Ant Design Vue icon component */
   icon?: Component;
 }>();
 </script>
@@ -13,7 +13,7 @@ defineProps<{
   <div class="container">
     <div class="title">
       <component :is="icon" v-if="icon" class="title-icon" />
-      <span>{{ title }}</span>
+      <span style="opacity: 0.7">{{ title }}</span>
     </div>
     <div class="content">
       {{ value }}
