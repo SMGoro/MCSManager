@@ -155,6 +155,11 @@ const dialog = reactive({
       }
       message.success(t("TXT_CODE_e74d658c"));
       dialog.close();
+      if (editMode.value) {
+        setTimeout(() => {
+          window.location.reload();
+        }, 150);
+      }
     } catch (error: any) {
       if (error?.errorFields instanceof Array) {
         message.warning(getValidatorErrorMsg(error, t("TXT_CODE_5245bd11")));
