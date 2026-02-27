@@ -130,7 +130,7 @@ function getDefaultFrontendLayoutConfig(): IPageLayoutConfig[] {
           id: getRandomId(),
           meta: {},
           type: "OperationLogCard",
-          title: t("近期敏感操作"),
+          title: t("TXT_CODE_6a444b79"),
           width: 4,
           description: t("TXT_CODE_9e8c176e"),
           height: LayoutCardHeight.MEDIUM

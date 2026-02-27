@@ -203,7 +203,7 @@ export function getLayoutCardPool() {
       id: getRandomId(),
       permission: ROLE.ADMIN,
       type: "StatusBlock",
-      title: t("面板端主机资源"),
+      title: t("TXT_CODE_48382669"),
       meta: {
         type: "system"
       },
