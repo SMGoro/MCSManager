@@ -1,14 +1,19 @@
 <script setup lang="ts">
+import type { Component } from "vue";
+
 defineProps<{
   title: string;
   value: string;
+  /** Ant Design Vue 图标组件，可选 */
+  icon?: Component;
 }>();
 </script>
 
 <template>
   <div class="container">
     <div class="title">
-      {{ title }}
+      <component :is="icon" v-if="icon" class="title-icon" />
+      <span>{{ title }}</span>
     </div>
     <div class="content">
       {{ value }}
@@ -19,9 +24,17 @@ defineProps<{
 <style lang="scss" scoped>
 .container {
   .title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     color: var(--color-gary-4);
     font-size: var(--font-body);
     margin-bottom: 8px;
+
+    .title-icon {
+      font-size: 16px;
+      color: var(--color-primary);
+    }
   }
   .content {
     color: var(--color-gary-6);
