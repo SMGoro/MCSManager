@@ -157,7 +157,6 @@ logger.info("----------------------------");
 console.log("");
 
 let isExiting = false;
-let isSoftExit = false;
 async function listenExitSig(signal: string, isForce = true) {
   if (isExiting && !isForce) {
     logger.warn($t("TXT_CODE_6f862823"));
@@ -177,12 +176,15 @@ async function listenExitSig(signal: string, isForce = true) {
       logger.warn($t("TXT_CODE_4ffdc91d", { signal }));
       isExiting = true;
 
-      if (isForce) {
-        // If force signal is received from the start, just kill everything
+      if (isForce || !config.enableSoftShutdown) {
+        // Force mode
         await InstanceSubsystem.exit(true);
       } else {
-        // Soft shutdown: skip Docker instances, soft close general instances
-        await InstanceSubsystem.softExit();
+        // Soft shutdown with configurable strategy
+        await InstanceSubsystem.softExit(
+          Boolean(config.softShutdownSkipDocker),
+          Number(config.softShutdownWaitSeconds) || 10
+        );
       }
 
       await uploadManager.exit();
