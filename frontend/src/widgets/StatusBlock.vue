@@ -180,6 +180,7 @@ const realStatus = computed(() => computedStatusList.value.find((v) => v.type ==
               :percent="realStatus.cpuPercent"
               :stroke-color="getProgressStrokeColor(realStatus.cpuPercent)"
               :stroke-width="12"
+              style="max-width: 80%"
               :show-info="false"
             />
             <div class="status-bar-value">
@@ -193,6 +194,7 @@ const realStatus = computed(() => computedStatusList.value.find((v) => v.type ==
               :stroke-color="getProgressStrokeColor(realStatus.memUsedPercent)"
               :stroke-width="12"
               :show-info="false"
+              style="max-width: 80%"
             />
             <div class="status-bar-value">
               <span class="status-bar-value__percent">{{ realStatus.memUsedPercent }}%</span>
@@ -226,6 +228,7 @@ const realStatus = computed(() => computedStatusList.value.find((v) => v.type ==
 
 .status-progress {
   margin-bottom: 10px;
+  max-width: 80%;
 
   :deep(.ant-progress-inner) {
     border-radius: 6px;
