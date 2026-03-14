@@ -99,6 +99,19 @@ const computedStatusList = computed<StatusItem[]>(() => {
 });
 
 const realStatus = computed(() => computedStatusList.value.find((v) => v.type === type));
+
+const systemBars = computed(() => {
+  const s = realStatus.value;
+  if (!s || s.type !== "system") return [];
+  return [
+    { label: "CPU", percent: s.cpuPercent },
+    {
+      label: "RAM",
+      percent: s.memUsedPercent,
+      detail: `${s.memUsedGB} GB / ${s.memTotalGB} GB`
+    }
+  ];
+});
 </script>
 
 <template>
@@ -153,54 +166,30 @@ const realStatus = computed(() => computedStatusList.value.find((v) => v.type ==
       <template v-else-if="realStatus?.type === 'users'">
         <div class="status-tags status-tags--wrap">
           <a-tag color="red">
-            <span class="status-tag-label">{{
-              t("TXT_CODE_871fb0d6")
-                .replace(/\s*:.*$/, "")
-                .trim()
-            }}</span>
+            <span class="status-tag-label">{{ t("TXT_CODE_43fcaf94") }}</span>
             <span class="status-tag-value">{{ realStatus.loginFailed }}</span>
           </a-tag>
           <a-tag color="green">
-            <span class="status-tag-label">{{
-              t("TXT_CODE_871fb0d6")
-                .replace(/^[^:]*:\s*/, "")
-                .trim()
-            }}</span>
+            <span class="status-tag-label">{{ t("TXT_CODE_ac405b50") }}</span>
             <span class="status-tag-value">{{ realStatus.logined }}</span>
           </a-tag>
         </div>
       </template>
 
-      <!-- System CPU / RAM: two progress bars + percent and value -->
+      <!-- System CPU / RAM -->
       <template v-else-if="realStatus?.type === 'system'">
         <div class="status-bars">
-          <div class="status-bar-item">
-            <span class="status-bar-label">CPU</span>
+          <div v-for="bar in systemBars" :key="bar.label" class="status-bar-item">
+            <span class="status-bar-label">{{ bar.label }}</span>
             <a-progress
-              :percent="realStatus.cpuPercent"
-              :stroke-color="getProgressStrokeColor(realStatus.cpuPercent)"
+              :percent="bar.percent"
+              :stroke-color="getProgressStrokeColor(bar.percent)"
               :stroke-width="12"
-              style="max-width: 80%"
               :show-info="false"
             />
             <div class="status-bar-value">
-              <span class="status-bar-value__percent">{{ realStatus.cpuPercent }}%</span>
-            </div>
-          </div>
-          <div class="status-bar-item">
-            <span class="status-bar-label">RAM</span>
-            <a-progress
-              :percent="realStatus.memUsedPercent"
-              :stroke-color="getProgressStrokeColor(realStatus.memUsedPercent)"
-              :stroke-width="12"
-              :show-info="false"
-              style="max-width: 80%"
-            />
-            <div class="status-bar-value">
-              <span class="status-bar-value__percent">{{ realStatus.memUsedPercent }}%</span>
-              <span class="status-bar-value__unit">
-                {{ realStatus.memUsedGB }} GB / {{ realStatus.memTotalGB }} GB
-              </span>
+              <span class="status-bar-value__percent">{{ bar.percent }}%</span>
+              <span v-if="bar.detail" class="status-bar-value__detail">{{ bar.detail }}</span>
             </div>
           </div>
         </div>
@@ -262,14 +251,15 @@ const realStatus = computed(() => computedStatusList.value.find((v) => v.type ==
 
 .status-bars {
   display: flex;
-  flex-direction: column;
-  gap: 14px;
+  gap: 20px;
   margin-top: 4px;
 
   .status-bar-item {
+    flex: 1;
+    min-width: 0;
+
     .status-bar-label {
       display: inline-block;
-      min-width: 36px;
       margin-bottom: 6px;
       color: var(--color-gary-4);
       font-size: 12px;
@@ -298,7 +288,7 @@ const realStatus = computed(() => computedStatusList.value.find((v) => v.type ==
         font-variant-numeric: tabular-nums;
       }
 
-      &__unit {
+      &__detail {
         opacity: 0.9;
       }
     }

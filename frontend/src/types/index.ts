@@ -33,6 +33,10 @@ export interface InstanceRuntimeInfo {
   memoryUsagePercent?: number;
   rxBytes?: number;
   txBytes?: number;
+  rxRate?: number;
+  txRate?: number;
+  networkInterfaces?: string[];
+  networkStatsSource?: "namespace" | "docker";
   readBytes?: number;
   writeBytes?: number;
   memoryUsage?: number;
@@ -88,6 +92,15 @@ export interface Settings {
   allowChangeCmd: boolean;
   registerCode: string;
   panelId: string;
+  ssoEnabled: boolean;
+  ssoOnlyMode: boolean;
+  ssoAutoRedirect: boolean;
+  ssoProviderName: string;
+  ssoIconUrl: string;
+  ssoIssuer: string;
+  ssoClientId: string;
+  ssoClientSecret: string;
+  ssoCallbackUrl: string;
 }
 
 export interface ImageInfo {
@@ -246,5 +259,7 @@ export interface PanelStatus {
     businessId: string;
     allowChangeCmd: boolean;
     panelId: string;
+    ssoEnabled: boolean;
+    ssoOnlyMode: boolean;
   };
 }

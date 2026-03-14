@@ -74,6 +74,8 @@ declare global {
   }
 
   interface IGlobalInstanceDockerConfig {
+    /** Docker image for update command; empty = not used */
+    updateCommandImage?: string;
     containerName?: string;
     image?: string;
     memory?: number;
@@ -96,6 +98,10 @@ declare global {
     capDrop?: string[];
     devices?: string[];
     privileged?: boolean;
+    /** Upload speed limit in KB/s */
+    uploadSpeedLimit?: number;
+    /** Download speed limit in KB/s */
+    downloadSpeedLimit?: number;
   }
 
   interface IPanelResponseProtocol {
@@ -226,6 +232,8 @@ declare global {
       pageTitle: string;
       logoImage: string;
       backgroundImage: string;
+      /** Main app navigation: "left" = sidebar, "right" = top header only */
+      sidebarPosition?: "left" | "right";
     };
   }
 
@@ -263,6 +271,10 @@ declare global {
     remark: string;
     targetLink?: string;
     author: string;
+    dockerOptional?: {
+      image: string;
+      updateCommandImage?: string;
+    };
     setupInfo: IGlobalInstanceConfig;
     gameType: string;
     image: string;

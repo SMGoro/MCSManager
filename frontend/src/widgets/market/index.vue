@@ -33,18 +33,18 @@ const { step3Ref, openTour, tourCurrent, tourSteps, setStepRef, markTourDone } =
 const { getMetaOrRouteValue } = useLayoutCardTools(props.card);
 const daemonId = getMetaOrRouteValue("daemonId", false) ?? "";
 
-// 表单数据状态
+// Form data state
 const formData = ref({
   createMethod: QUICKSTART_METHOD.DOCKER,
   daemonId: daemonId || ""
 });
 
-// 弹窗状态
+// Dialog visibility state
 const showCreateForm = ref(false);
 
 const handleNext = (instanceUuid: string) => {
   showCreateForm.value = false;
-  // 创建成功后跳转到实例终端页面
+  // Navigate to instance terminal after create
   router.push({
     path: "/instances/terminal",
     query: {
@@ -166,7 +166,7 @@ const openEditor = () => {
     <a-modal
       v-model:open="showCreateForm"
       :title="t('TXT_CODE_645bc545')"
-      :width="800"
+      :width="1000"
       :footer="null"
       :destroy-on-close="true"
     >

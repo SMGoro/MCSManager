@@ -17,6 +17,10 @@ interface TerminalRuntimeInfo {
   memoryUsagePercent?: number;
   rxBytes?: number;
   txBytes?: number;
+  rxRate?: number;
+  txRate?: number;
+  networkInterfaces?: string[];
+  networkStatsSource?: "namespace" | "docker";
   storageUsage?: number;
   storageLimit?: number;
 }
@@ -57,6 +61,9 @@ const formatNetworkSpeed = (bytes?: number) =>
         "b"
       ) + "ps";
 
+const formatTrafficUsage = (bytes?: number) =>
+  prettyBytes(bytes ?? 0, { ...prettyBytesConfig, binary: false });
+
 const cards = computed<PerfCardItem[]>(() => {
   const info = props.info;
   if (!info || props.isStopped) return [];
@@ -68,6 +75,8 @@ const cards = computed<PerfCardItem[]>(() => {
     memoryUsagePercent,
     rxBytes,
     txBytes,
+    rxRate,
+    txRate,
     storageUsage,
     storageLimit
   } = info;
@@ -106,28 +115,39 @@ const cards = computed<PerfCardItem[]>(() => {
         }
       : null,
 
-    storageUsage != null
+    storageUsage
       ? {
           key: "disk",
           label: t("TXT_CODE_DISK_USAGE"),
-          value: formatMemoryUsage(storageUsage, storageLimit),
+          value: formatMemoryUsage(storageUsage || 0, storageLimit || 0),
           icon: HddOutlined,
           theme: "perf-card--disk",
           barPercent: storagePercent
         }
       : null,
 
-    rxBytes != null || txBytes != null
+    rxRate != null || txRate != null
       ? {
-          key: "network",
-          label: t("TXT_CODE_50daec4"),
-          value: `↓${formatNetworkSpeed(rxBytes)} ↑${formatNetworkSpeed(txBytes)}`,
+          key: "network-bandwidth",
+          label: `${t("TXT_CODE_50daec4")} · 带宽`,
+          value: `↓${formatNetworkSpeed(rxRate)} ↑${formatNetworkSpeed(txRate)}`,
           icon: ApartmentOutlined,
           theme: "perf-card--network",
           barPercent: 0,
           onClick: () => {
             useByteUnit.value = !useByteUnit.value;
           }
+        }
+      : null,
+
+    rxBytes != null || txBytes != null
+      ? {
+          key: "network-traffic",
+          label: `${t("TXT_CODE_50daec4")} · 流量`,
+          value: `↓${formatTrafficUsage(rxBytes)} ↑${formatTrafficUsage(txBytes)}`,
+          icon: ApartmentOutlined,
+          theme: "perf-card--network",
+          barPercent: 0
         }
       : null
   ];
